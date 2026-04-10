@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Layar Antrian</title>
+
+<style>
+body {
+  margin: 0;
+  font-family: sans-serif;
+  background: #020617;
+  color: white;
+  text-align: center;
+}
+
+.big {
+  font-size: 120px;
+  font-weight: bold;
+  margin-top: 40px;
+}
+
+.status-big {
+  font-size: 30px;
+  margin-top: 10px;
+}
+
+.container {
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+  flex-wrap: wrap;
+  padding: 20px;
+}
+
+.card {
+  background: #1e293b;
+  padding: 15px;
+  border-radius: 15px;
+  width: 100px;
+  font-size: 20px;
+}
+
+/* ================= WARNA ================= */
+
+.menunggu {
+  color: #f59e0b;
+}
+
+.diproses {
+  color: #3b82f6;
+}
+
+.diantar {
+  color: #22c55e;
+}
+
+.selesai {
+  color: #94a3b8;
+}
+
+/* ================= ANIMASI ================= */
+
+.blink {
+  animation: blink 1s infinite alternate;
+}
+
+@keyframes blink {
+  from { opacity: 1; }
+  to { opacity: 0.5; }
+}
+
+.flash {
+  animation: zoom 0.4s ease;
+}
+
+@keyframes zoom {
+  0% { transform: scale(0.6); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.fade-out {
+  animation: fadeOut 1s forwards;
+}
+
+@keyframes fadeOut {
+  to {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+}
+</style>
+</head>
+
+<body>
+
+<button onclick="window.location='menu.html'" style="position:absolute; top:10px; left:10px; background:#64748b;">
+  ⬅️
+</button>
+
+<h1>📺 ANTRIAN</h1>
+
+<div>
+  <div id="bigNumber" class="big">A000</div>
+  <div id="bigStatus" class="status-big"></div>
+</div>
+
+<div class="container" id="list"></div>
+
+<script>
+
+let lastStatus = {};
+let firstLoad = true;
+
+/* ================= SUARA ================= */
+function panggil(nomor, status) {
+  let text = "";
+
+  if (status === "menunggu") {
+    text = `Order A${nomor} baru masuk ya, siap diproses`;
+  }
+
+  if (status === "diproses") {
+    text = `Order A${nomor} lagi kita siapin, mohon ditunggu`;
+  }
+
+  if (status === "diantar") {
+    text = `Order A${nomor} lagi di jalan, ditunggu ya`;
+  }
+
+  if (status === "selesai") {
+    text = `Order A${nomor} sudah selesai, terima kasih`;
+  }
+
+  if (!text) return;
+
+  const suara = new SpeechSynthesisUtterance(text);
+  suara.lang = "id-ID";
+  suara.rate = 0.95;
+
+  speechSynthesis.cancel();
+  speechSynthesis.speak(suara);
+}
+
+/* ================= LOAD ================= */
+function loadAntrian() {
+  fetch("/orders?nocache=" + Date.now())
+    .then(res => res.json())
+    .then(data => {
+
+      if (data.length === 0) return;
+
+      const maxId = Math.max(...data.map(o => o.id));
+      const utama = data.find(o => o.id === maxId);
+
+      const nomorUtama = String(utama.antrian).padStart(3,"0");
+      const statusUtama = utama.status.toLowerCase().trim();
+
+      /* ================= NOMOR BESAR ================= */
+
+      const big = document.getElementById("bigNumber");
+      const statusEl = document.getElementById("bigStatus");
+
+      big.innerText = "A" + nomorUtama;
+      statusEl.innerText = utama.status;
+
+      big.classList.add("flash");
+      setTimeout(() => big.classList.remove("flash"), 400);
+
+      /* ================= SUARA ================= */
+
+      if (!firstLoad && (!lastStatus[utama.id] || lastStatus[utama.id] !== statusUtama)) {
+        panggil(nomorUtama, statusUtama);
+      }
+
+      lastStatus[utama.id] = statusUtama;
+
+      /* ================= LIST ================= */
+
+      const list = document.getElementById("list");
+      list.innerHTML = "";
+
+      data.forEach(o => {
+        const nomor = String(o.antrian).padStart(3,"0");
+        const status = o.status.toLowerCase().trim();
+
+        const div = document.createElement("div");
+        div.className = "card";
+
+        let warna = "";
+
+        if (status === "menunggu") warna = "menunggu";
+        if (status === "diproses") warna = "diproses";
+        if (status === "diantar") warna = "diantar";
+        if (status === "selesai") warna = "selesai";
+
+        // blink khusus MENUNGGU terbaru
+        if (status === "menunggu" && o.id === maxId) {
+          div.classList.add("blink");
+        }
+
+        // fade out kalau selesai
+        if (status === "selesai") {
+          setTimeout(() => {
+            div.classList.add("fade-out");
+          }, 2000);
+        }
+
+        div.innerHTML = `
+          <div>A${nomor}</div>
+          <div class="${warna}">${o.status}</div>
+        `;
+
+        list.appendChild(div);
+      });
+
+      firstLoad = false;
+
+    });
+}
+
+/* ================= REALTIME ================= */
+setInterval(loadAntrian, 2000);
+loadAntrian();
+
+</script>
+
+</body>
+</html>

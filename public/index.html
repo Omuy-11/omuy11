@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Order App</title>
+<link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+<div class="container">
+
+<button onclick="window.location='menu.html'" style="background:#64748b; margin-bottom:10px;">
+  ⬅️ Kembali ke Menu
+</button>
+
+<h1 style="text-align:center;">🍜 Order Makanan</h1>
+<p style="text-align:center; color:#666;">Pilih menu favorit kamu</p>
+
+<!-- MENU -->
+<div class="menu">
+
+  <div class="card">
+    <img src="https://source.unsplash.com/300x300/?nasi">
+    <h3>Nasi Ayam</h3>
+    <p>Rp 15.000</p>
+    <button onclick="tambah('Nasi Ayam',15000)">Tambah</button>
+  </div>
+
+  <div class="card">
+    <img src="https://source.unsplash.com/300x300/?mie">
+    <h3>Mie Pedas</h3>
+    <p>Rp 12.000</p>
+    <button onclick="tambah('Mie Pedas',12000)">Tambah</button>
+  </div>
+
+</div>
+
+<!-- KERANJANG -->
+<h2>🛒 Keranjang</h2>
+<ul id="keranjang"></ul>
+
+<p class="total">Total: <b id="total">Rp 0</b></p>
+
+<!-- FORM -->
+<input id="nama" placeholder="Nama">
+
+<select id="alamat">
+  <option value="">Pilih alamat</option>
+  <option value="Pacet" data-ongkir="1000">Pacet - Rp 1.000</option>
+  <option value="Majalaya" data-ongkir="2000">Majalaya - Rp 2.000</option>
+</select>
+
+<select id="pembayaran">
+  <option value="">Pembayaran</option>
+  <option value="COD">COD</option>
+  <option value="QRIS">QRIS</option>
+</select>
+
+<!-- STATUS -->
+<div id="statusBox"></div>
+
+<!-- BUTTON PESAN -->
+<div class="footer">
+  <button onclick="checkout()">Pesan Sekarang</button>
+</div>
+
+</div>
+
+<!-- QRIS MODAL -->
+<div id="qrisBox">
+  <div class="content">
+    <h3>QRIS</h3>
+    <p id="totalBayar"></p>
+
+    <input type="checkbox" id="konfirmasi"> Sudah bayar
+    <br><br>
+
+    <button onclick="lanjutOrder()">Kirim</button>
+  </div>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
