@@ -9,11 +9,11 @@ app.use(express.static("public"));
 /* ================= DATABASE ================= */
 
 const db = mysql.createConnection({
-  host: process.env.MYSQLHOST,
-  user: process.env.MYSQLUSER,
-  password: process.env.MYSQLPASSWORD,
-  database: process.env.MYSQLDATABASE,
-  port: process.env.MYSQLPORT
+  host: "metro.proxy.rlwy.net",
+  user: "root",
+  password: "TLxyeTnWCVpVxuTBabyngbSXFrgNJPbf",
+  database: "railway",
+  port: 28940
 });
 
 db.connect(err => {
