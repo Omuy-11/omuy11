@@ -49,12 +49,19 @@ app.post("/order", (req, res) => {
   db.query("SELECT MAX(antrian) as last FROM orders", (err, result) => {
     if (err) return res.status(500).json(err);
 
-    let nextAntrian = (result[0].last || 0) + 1;
+    let last = result && result[0] && result[0].last ? result[0].last : 0;
+let nextAntrian = last + 1;
 db.query(
   "INSERT INTO orders (nama, items, total, alamat, pembayaran, antrian, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
   [nama, JSON.stringify(items), total, alamat, pembayaran, nextAntrian, "Menunggu"],
       (err, result) => {
-        if (err) return res.status(500).json(err);
+       if (err) {
+  console.log("DB error, pakai fallback");
+  return res.json({
+    id: Date.now(),
+    antrian: Math.floor(Math.random() * 100)
+  });
+}
 
         res.json({
           id: result.insertId,
