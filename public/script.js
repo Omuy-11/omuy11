@@ -1,6 +1,8 @@
 let keranjang = [];
 let currentOrderId = null;
 
+const BASE_URL = "https://omuy11-production.up.railway.app";
+
 /* ================= TAMBAH ITEM ================= */
 
 function tambah(nama, harga) {
@@ -18,7 +20,7 @@ function renderKeranjang() {
 
   let total = 0;
 
-  keranjang.forEach((item, i) => {
+  keranjang.forEach((item) => {
     total += item.harga;
 
     const li = document.createElement("li");
@@ -72,7 +74,7 @@ function lanjutOrder() {
 /* ================= KIRIM ORDER ================= */
 
 function kirimOrder(nama, alamat, pembayaran, total) {
-  fetch("/order", {
+  fetch(BASE_URL + "/order", {
     method: "POST",
     headers: {
       "Content-Type": "application/json"
@@ -85,30 +87,28 @@ function kirimOrder(nama, alamat, pembayaran, total) {
       pembayaran
     })
   })
-  .then(res => res.json())
-.then(data => {
-  console.log("DATA ORDER:", data); // 🔥 debug
+    .then(res => res.json())
+    .then(data => {
+      console.log("DATA ORDER:", data);
 
-  currentOrderId = data.id;
+      currentOrderId = data.id;
 
-  let nomor = data.antrian;
+      let nomor = data.antrian || 0;
 
-  // 🔥 fallback kalau undefined
-  if (!nomor) {
-    nomor = Math.floor(Math.random() * 900) + 100;
-    console.log("Fallback antrian:", nomor);
-  }
+      alert("Nomor Antrian Kamu: A" + String(nomor).padStart(3, "0"));
 
-  alert("Nomor Antrian Kamu: A" + String(nomor).padStart(3, "0"));
+      keranjang = [];
+      renderKeranjang();
+      mulaiPantauStatus();
+    })
+    .catch(err => console.error("ERROR:", err));
+}
 
-  keranjang = [];
-  renderKeranjang();
-  mulaiPantauStatus();
-});
+/* ================= STATUS ================= */
 
 function mulaiPantauStatus() {
   setInterval(() => {
-    fetch("/orders")
+    fetch(BASE_URL + "/orders")
       .then(res => res.json())
       .then(data => {
         const order = data.find(o => o.id == currentOrderId);
@@ -136,14 +136,16 @@ function tampilkanStatus(status) {
 
 function initAdmin() {
   loadOrders();
-  setInterval(loadOrders, 2000); // realtime admin
+  setInterval(loadOrders, 2000);
 }
 
 function loadOrders() {
-  fetch("/orders")
+  fetch(BASE_URL + "/orders")
     .then(res => res.json())
     .then(data => {
       const container = document.getElementById("orders");
+      if (!container) return;
+
       container.innerHTML = "";
 
       data.forEach(o => {
@@ -156,21 +158,14 @@ function loadOrders() {
   ${o.items.map(i => i.nama).join(", ")}<br>
   Rp ${o.total}<br>
 
-         <div class="status-btns">
-  <button class="btn-menunggu ${o.status=="Menunggu"?"active-status":""}"
-    onclick="updateStatus(${o.id}, 'Menunggu')">Menunggu</button>
+  <div class="status-btns">
+    <button onclick="updateStatus(${o.id}, 'Menunggu')">Menunggu</button>
+    <button onclick="updateStatus(${o.id}, 'Diproses')">Diproses</button>
+    <button onclick="updateStatus(${o.id}, 'Diantar')">Diantar</button>
+    <button onclick="updateStatus(${o.id}, 'Selesai')">Selesai</button>
+  </div>
 
-  <button class="btn-diproses ${o.status=="Diproses"?"active-status":""}"
-    onclick="updateStatus(${o.id}, 'Diproses')">Diproses</button>
-
-  <button class="btn-diantar ${o.status=="Diantar"?"active-status":""}"
-    onclick="updateStatus(${o.id}, 'Diantar')">Diantar</button>
-
-  <button class="btn-selesai ${o.status=="Selesai"?"active-status":""}"
-    onclick="updateStatus(${o.id}, 'Selesai')">Selesai</button>
-</div>
-
-          <button onclick="hapus(${o.id})" style="background:red;">Hapus</button>
+  <button onclick="hapus(${o.id})" style="background:red;">Hapus</button>
         `;
 
         container.appendChild(div);
@@ -179,7 +174,7 @@ function loadOrders() {
 }
 
 function updateStatus(id, status) {
-  fetch("/order/" + id, {
+  fetch(BASE_URL + "/order/" + id, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ status })
@@ -187,7 +182,7 @@ function updateStatus(id, status) {
 }
 
 function hapus(id) {
-  fetch("/order/" + id, {
+  fetch(BASE_URL + "/order/" + id, {
     method: "DELETE"
   });
 }
@@ -198,7 +193,7 @@ function login() {
   const user = document.getElementById("user").value;
   const pass = document.getElementById("pass").value;
 
-  fetch("/login", {
+  fetch(BASE_URL + "/login", {
     method: "POST",
     headers: {"Content-Type":"application/json"},
     body: JSON.stringify({ user, pass })
@@ -206,9 +201,9 @@ function login() {
   .then(res => res.json())
   .then(data => {
     if (data.success) {
-  localStorage.setItem("isLogin", "true");
-  window.location = "menu.html"; // 🔥 masuk dashboard
-} else {
+      localStorage.setItem("isLogin", "true");
+      window.location = "menu.html";
+    } else {
       document.getElementById("msg").innerText = "Login gagal!";
     }
   });
@@ -234,7 +229,7 @@ function cekLogin() {
 /* ================= STATISTIK ================= */
 
 function loadStats() {
-  fetch("/orders")
+  fetch(BASE_URL + "/orders")
     .then(res => res.json())
     .then(data => {
       let totalOrder = data.length;
@@ -253,7 +248,4 @@ function loadStats() {
         🟢 Selesai: ${selesai}
       `;
     });
-}
-
-  initAdmin();
 }
