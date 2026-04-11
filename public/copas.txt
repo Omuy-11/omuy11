@@ -1,4 +1,5 @@
 server.js
+
 const express = require("express");
 const mysql = require("mysql2");
 
@@ -10,15 +11,15 @@ app.use(express.static("public"));
 /* ================= DATABASE ================= */
 
 const db = mysql.createConnection({
-  host: "localhost",
-  user: "root",
-  password: "",
-  database: "order_app"
+  host: process.env.DB_HOST || "localhost",
+  user: process.env.DB_USER || "root",
+  password: process.env.DB_PASS || "",
+  database: process.env.DB_NAME || "order_app"
 });
 
 db.connect(err => {
   if (err) {
-    console.log("❌ DB Error:", err);
+    console.log("❌ DB Error (skip for Railway)");
   } else {
     console.log("✅ MySQL Connected");
   }
@@ -48,17 +49,37 @@ app.post("/order", (req, res) => {
   const { nama, items, total, alamat, pembayaran } = req.body;
 
   db.query("SELECT MAX(antrian) as last FROM orders", (err, result) => {
-    if (err) return res.status(500).json(err);
 
-    let nextAntrian = (result[0].last || 0) + 1;
-db.query(
-  "INSERT INTO orders (nama, items, total, alamat, pembayaran, antrian, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
-  [nama, JSON.stringify(items), total, alamat, pembayaran, nextAntrian, "Menunggu"],
-      (err, result) => {
-        if (err) return res.status(500).json(err);
+    // 🔥 kalau DB error → pakai fallback
+    if (err || !result) {
+      console.log("DB error, pakai antrian sementara");
+
+      return res.json({
+        id: Date.now(),
+        antrian: Math.floor(Math.random() * 900) + 100 // 100-999
+      });
+    }
+
+    let last = result[0]?.last || 0;
+    let nextAntrian = last + 1;
+
+    db.query(
+      "INSERT INTO orders (nama, items, total, alamat, pembayaran, antrian, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      [nama, JSON.stringify(items), total, alamat, pembayaran, nextAntrian, "Menunggu"],
+      (err2, result2) => {
+
+        // 🔥 kalau insert gagal → fallback juga
+        if (err2) {
+          console.log("Insert gagal, pakai fallback");
+
+          return res.json({
+            id: Date.now(),
+            antrian: nextAntrian || Math.floor(Math.random() * 900) + 100
+          });
+        }
 
         res.json({
-          id: result.insertId,
+          id: result2.insertId,
           antrian: nextAntrian
         });
       }
@@ -117,12 +138,8 @@ app.listen(PORT, () => {
 });
 
 admin.html
+
 <!DOCTYPE html>
-
-<button onclick="window.open('antrian.html')" style="background:#3b82f6; margin-bottom:10px;">
-  📺 Buka Layar Antrian
-</button>
-
 <html lang="id">
 <head>
 <meta charset="UTF-8">
@@ -131,15 +148,21 @@ admin.html
 <link rel="stylesheet" href="style.css">
 </head>
 
-<body onload="initAdmin()">
+<body onload="cekLogin()">
 
 <div class="container">
+
+<button onclick="window.location='menu.html'" style="background:#64748b; margin-bottom:10px;">
+  ⬅️ Kembali ke Menu
+</button>
+
 <h2>📦 Admin Panel</h2>
 
 <button onclick="loadOrders()">🔄 Refresh</button>
 <button onclick="logout()" style="background:red;">Logout</button>
 
 <div id="orders"></div>
+
 </div>
 
 <script src="script.js"></script>
@@ -147,6 +170,7 @@ admin.html
 </html>
 
 antrian.html
+
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -242,6 +266,10 @@ body {
 </head>
 
 <body>
+
+<button onclick="window.location='menu.html'" style="position:absolute; top:10px; left:10px; background:#64748b;">
+  ⬅️
+</button>
 
 <h1>📺 ANTRIAN</h1>
 
@@ -374,6 +402,7 @@ loadAntrian();
 </html>
 
 cs.html
+
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -385,7 +414,12 @@ cs.html
 <body>
 
 <div class="container">
-  <h2>💬 Customer Service</h2>
+
+<button onclick="window.location='menu.html'" style="background:#64748b; margin-bottom:10px;">
+  ⬅️ Kembali ke Menu
+</button>
+
+<h2>💬 Customer Service</h2>
 
   <p>Nanti bisa isi chat / WhatsApp / dll</p>
 
@@ -397,6 +431,7 @@ cs.html
 </html>
 
 index.html
+
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -410,6 +445,10 @@ index.html
 
 <div class="container">
 
+<button onclick="window.location='menu.html'" style="background:#64748b; margin-bottom:10px;">
+  ⬅️ Kembali ke Menu
+</button>
+
 <h1 style="text-align:center;">🍜 Order Makanan</h1>
 <p style="text-align:center; color:#666;">Pilih menu favorit kamu</p>
 
@@ -417,14 +456,14 @@ index.html
 <div class="menu">
 
   <div class="card">
-    <img src="https://source.unsplash.com/300x300/?nasi" style="width:100%; border-radius:12px;">
+    <img src="https://source.unsplash.com/300x300/?nasi">
     <h3>Nasi Ayam</h3>
     <p>Rp 15.000</p>
     <button onclick="tambah('Nasi Ayam',15000)">Tambah</button>
   </div>
 
   <div class="card">
-    <img src="https://source.unsplash.com/300x300/?mie" style="width:100%; border-radius:12px;">
+    <img src="https://source.unsplash.com/300x300/?mie">
     <h3>Mie Pedas</h3>
     <p>Rp 12.000</p>
     <button onclick="tambah('Mie Pedas',12000)">Tambah</button>
@@ -463,12 +502,6 @@ index.html
 
 </div>
 
-<div style="margin-top:10px;">
-  <button onclick="window.open('antrian.html')">
-    📺 Lihat Antrian
-  </button>
-</div>
-
 <!-- QRIS MODAL -->
 <div id="qrisBox">
   <div class="content">
@@ -487,6 +520,7 @@ index.html
 </html>
 
 login.html
+
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -511,28 +545,1145 @@ login.html
 </body>
 </html>
 
-menu.html
+statistik.html
+
 <!DOCTYPE html>
-<html>
+<html lang="id">
 <head>
+<meta charset="UTF-8">
+<title>Statistik</title>
+<link rel="stylesheet" href="style.css">
+</head>
+
+<body onload="loadStats()">
+
+<div class="container">
+
+<button onclick="window.location='menu.html'" style="background:#64748b; margin-bottom:10px;">
+  ⬅️ Kembali ke Menu
+</button>
+
+<h2>📊 Statistik Harian</h2>
+
+  <div id="stats" class="card">Loading...</div>
+
+  <br>
+  <button onclick="window.location='menu.html'" style="background:#64748b; margin:10px;">
+  ⬅️ Kembali
+</button>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
+
+style.css
+
+/* ================= GLOBAL ================= */
+
+body {
+  font-family: 'Segoe UI', sans-serif;
+  background: #f8fafc;
+  margin: 0;
+  padding: 0;
+}
+
+/* ================= CONTAINER ================= */
+
+.container {
+  max-width: 500px;
+  margin: auto;
+  padding: 20px;
+}
+
+/* ================= CARD ================= */
+
+.card {
+  background: white;
+  border-radius: 18px;
+  padding: 15px;
+  margin-bottom: 15px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+  transition: 0.2s;
+}
+
+.card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 15px 30px rgba(0,0,0,0.08);
+}
+
+.card img {
+  width: 100%;
+  height: 120px;
+  object-fit: cover;
+  border-radius: 12px;
+}
+
+.card h3 {
+  margin: 8px 0 4px;
+}
+
+.card p {
+  margin: 0;
+  color: #666;
+}
+
+/* ================= BUTTON ================= */
+
+button {
+  border: none;
+  border-radius: 12px;
+  padding: 10px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: 0.2s;
+  width: 100%;
+  background: #22c55e;
+  color: white;
+}
+
+button:hover {
+  opacity: 0.9;
+}
+
+button:active {
+  transform: scale(0.96);
+}
+
+/* ================= STATUS ================= */
+
+.status {
+  margin-top: 10px;
+  padding: 8px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: bold;
+  text-align: center;
+}
+
+.menunggu { background: #fef3c7; color: #92400e; }
+.diproses { background: #dbeafe; color: #1e40af; }
+.diantar { background: #ede9fe; color: #5b21b6; }
+.selesai { background: #dcfce7; color: #166534; }
+
+/* ================= ADMIN BUTTON ================= */
+
+.status-btns {
+  display: flex;
+  gap: 5px;
+  margin-top: 10px;
+}
+
+.status-btns button {
+  flex: 1;
+  padding: 6px;
+  font-size: 11px;
+  border-radius: 8px;
+  color: white;
+}
+
+.btn-menunggu { background: #f59e0b; }
+.btn-diproses { background: #3b82f6; }
+.btn-diantar { background: #8b5cf6; }
+.btn-selesai { background: #22c55e; }
+
+.active-status {
+  outline: 2px solid black;
+}
+
+/* ================= INPUT ================= */
+
+input, select {
+  width: 100%;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  margin-top: 8px;
+}
+
+/* ================= QRIS BOX ================= */
+
+#qrisBox {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.5);
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+
+#qrisBox .content {
+  background: white;
+  padding: 20px;
+  border-radius: 15px;
+  text-align: center;
+}
+
+.menu {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+#keranjang li {
+  list-style: none;
+  padding: 10px;
+  margin-top: 5px;
+  background: #f1f5f9;
+  border-radius: 10px;
+}
+
+h2 {
+  margin-top: 20px;
+}
+
+.total {
+  margin-top: 10px;
+  font-size: 16px;
+}
+
+.footer {
+  margin-top: 20px;
+}
+
+.footer button {
+  font-size: 16px;
+  padding: 12px;
+  border-radius: 14px;
+}
+
+.menu-admin {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.menu-admin button {
+  padding: 15px;
+  font-size: 14px;
+  border-radius: 14px;
+}
+
+script.js
+
+let keranjang = [];
+let currentOrderId = null;
+
+/* ================= TAMBAH ITEM ================= */
+
+function tambah(nama, harga) {
+  keranjang.push({ nama, harga });
+  renderKeranjang();
+}
+
+/* ================= RENDER KERANJANG ================= */
+
+function renderKeranjang() {
+  const list = document.getElementById("keranjang");
+  const totalEl = document.getElementById("total");
+
+  list.innerHTML = "";
+
+  let total = 0;
+
+  keranjang.forEach((item, i) => {
+    total += item.harga;
+
+    const li = document.createElement("li");
+    li.innerHTML = `${item.nama} - Rp ${item.harga}`;
+    list.appendChild(li);
+  });
+
+  totalEl.innerText = "Rp " + total;
+}
+
+/* ================= CHECKOUT ================= */
+
+function checkout() {
+  const nama = document.getElementById("nama").value;
+  const alamatSelect = document.getElementById("alamat");
+  const alamat = alamatSelect.value;
+  const ongkir = alamatSelect.selectedOptions[0]?.dataset.ongkir || 0;
+  const pembayaran = document.getElementById("pembayaran").value;
+
+  if (!nama || !alamat || !pembayaran || keranjang.length === 0) {
+    alert("Lengkapi data dulu!");
+    return;
+  }
+
+  let total = keranjang.reduce((sum, item) => sum + item.harga, 0);
+  total += parseInt(ongkir);
+
+  if (pembayaran === "QRIS") {
+    document.getElementById("qrisBox").style.display = "flex";
+    document.getElementById("totalBayar").innerText = "Total: Rp " + total;
+  } else {
+    kirimOrder(nama, alamat, pembayaran, total);
+  }
+}
+
+function lanjutOrder() {
+  const cek = document.getElementById("konfirmasi").checked;
+  if (!cek) return alert("Konfirmasi dulu!");
+
+  const nama = document.getElementById("nama").value;
+  const alamat = document.getElementById("alamat").value;
+  const pembayaran = document.getElementById("pembayaran").value;
+
+  let total = keranjang.reduce((sum, item) => sum + item.harga, 0);
+
+  kirimOrder(nama, alamat, pembayaran, total);
+
+  document.getElementById("qrisBox").style.display = "none";
+}
+
+/* ================= KIRIM ORDER ================= */
+
+function kirimOrder(nama, alamat, pembayaran, total) {
+  fetch("/order", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      nama,
+      items: keranjang,
+      total,
+      alamat,
+      pembayaran
+    })
+  })
+  .then(res => res.json()) // 🔥 INI YANG KURANG
+  .then(data => {
+    currentOrderId = data.id;
+
+    if (!data.antrian) {
+  alert("Gagal mendapatkan nomor antrian!");
+  return;
+}
+
+alert("Nomor Antrian Kamu: A" + String(data.antrian).padStart(3, "0"));
+
+    keranjang = [];
+    renderKeranjang();
+    mulaiPantauStatus();
+  });
+}
+
+function mulaiPantauStatus() {
+  setInterval(() => {
+    fetch("/orders")
+      .then(res => res.json())
+      .then(data => {
+        const order = data.find(o => o.id == currentOrderId);
+        if (!order) return;
+
+        tampilkanStatus(order.status);
+      });
+  }, 2000);
+}
+
+function tampilkanStatus(status) {
+  const box = document.getElementById("statusBox");
+
+  let className = "";
+
+  if (status === "Menunggu") className = "menunggu";
+  if (status === "Diproses") className = "diproses";
+  if (status === "Diantar") className = "diantar";
+  if (status === "Selesai") className = "selesai";
+
+  box.innerHTML = `<div class="status ${className}">${status}</div>`;
+}
+
+/* ================= ADMIN ================= */
+
+function initAdmin() {
+  loadOrders();
+  setInterval(loadOrders, 2000); // realtime admin
+}
+
+function loadOrders() {
+  fetch("/orders")
+    .then(res => res.json())
+    .then(data => {
+      const container = document.getElementById("orders");
+      container.innerHTML = "";
+
+      data.forEach(o => {
+        const div = document.createElement("div");
+        div.className = "card";
+
+        div.innerHTML = `
+  <b>🧾 A${String(o.antrian).padStart(3,"0")}</b><br>
+  <b>${o.nama}</b><br>
+  ${o.items.map(i => i.nama).join(", ")}<br>
+  Rp ${o.total}<br>
+
+         <div class="status-btns">
+  <button class="btn-menunggu ${o.status=="Menunggu"?"active-status":""}"
+    onclick="updateStatus(${o.id}, 'Menunggu')">Menunggu</button>
+
+  <button class="btn-diproses ${o.status=="Diproses"?"active-status":""}"
+    onclick="updateStatus(${o.id}, 'Diproses')">Diproses</button>
+
+  <button class="btn-diantar ${o.status=="Diantar"?"active-status":""}"
+    onclick="updateStatus(${o.id}, 'Diantar')">Diantar</button>
+
+  <button class="btn-selesai ${o.status=="Selesai"?"active-status":""}"
+    onclick="updateStatus(${o.id}, 'Selesai')">Selesai</button>
+</div>
+
+          <button onclick="hapus(${o.id})" style="background:red;">Hapus</button>
+        `;
+
+        container.appendChild(div);
+      });
+    });
+}
+
+function updateStatus(id, status) {
+  fetch("/order/" + id, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ status })
+  });
+}
+
+function hapus(id) {
+  fetch("/order/" + id, {
+    method: "DELETE"
+  });
+}
+
+/* ================= LOGIN ================= */
+
+function login() {
+  const user = document.getElementById("user").value;
+  const pass = document.getElementById("pass").value;
+
+  fetch("/login", {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({ user, pass })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.success) {
+  localStorage.setItem("isLogin", "true");
+  window.location = "menu.html"; // 🔥 masuk dashboard
+} else {
+      document.getElementById("msg").innerText = "Login gagal!";
+    }
+  });
+}
+
+function logout() {
+  localStorage.removeItem("isLogin");
+  window.location = "login.html";
+}
+
+function cekLogin() {
+  const isLogin = localStorage.getItem("isLogin");
+
+  if (!isLogin) {
+    alert("Harus login dulu!");
+    window.location = "login.html";
+    return;
+  }
+  
+  function loadStats() {
+  fetch("/orders")
+    .then(res => res.json())
+    .then(data => {
+
+      let totalOrder = data.length;
+      let totalUang = data.reduce((sum, o) => sum + o.total, 0);
+
+      let selesai = data.filter(o => o.status === "Selesai").length;
+      let proses = data.filter(o => o.status === "Diproses").length;
+      let menunggu = data.filter(o => o.status === "Menunggu").length;
+
+      document.getElementById("stats").innerHTML = `
+        <b>Total Order:</b> ${totalOrder}<br>
+        <b>Total Pendapatan:</b> Rp ${totalUang}<br><br>
+
+        🟡 Menunggu: ${menunggu}<br>
+        🔵 Diproses: ${proses}<br>
+        🟢 Selesai: ${selesai}
+      `;
+    });
+}
+
+  initAdmin();
+}
+
+menu.html
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Menu</title>
 <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
 
+<body onload="cekLogin()">
+
 <div class="container">
-<h2>Menu</h2>
+  <h2 style="text-align:center;">📋 Menu Utama</h2>
 
-<button onclick="location='index.html'">User</button>
-<button onclick="location='admin.html'">Admin</button>
-<button onclick="location='antrian.html'">Layar</button>
-
+  <div class="menu-admin">
+    <button onclick="location='admin.html'">📦 Admin Panel</button>
+    <button onclick="location='antrian.html'">📺 Layar Antrian</button>
+    <button onclick="location='cs.html'">💬 CS</button>
+    <button onclick="location='statistik.html'">📊 Statistik</button>
+  </div>
 </div>
 
 </body>
 </html>
 
+admin.html
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin</title>
+<link rel="stylesheet" href="style.css">
+</head>
+
+<body onload="cekLogin()">
+
+<div class="container">
+
+<button onclick="window.location='menu.html'" style="background:#64748b; margin-bottom:10px;">
+  ⬅️ Kembali ke Menu
+</button>
+
+<h2>📦 Admin Panel</h2>
+
+<button onclick="loadOrders()">🔄 Refresh</button>
+<button onclick="logout()" style="background:red;">Logout</button>
+
+<div id="orders"></div>
+
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
+
+antrian.html
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Layar Antrian</title>
+
+<style>
+body {
+  margin: 0;
+  font-family: sans-serif;
+  background: #020617;
+  color: white;
+  text-align: center;
+}
+
+.big {
+  font-size: 120px;
+  font-weight: bold;
+  margin-top: 40px;
+}
+
+.status-big {
+  font-size: 30px;
+  margin-top: 10px;
+}
+
+.container {
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+  flex-wrap: wrap;
+  padding: 20px;
+}
+
+.card {
+  background: #1e293b;
+  padding: 15px;
+  border-radius: 15px;
+  width: 100px;
+  font-size: 20px;
+}
+
+/* ================= WARNA ================= */
+
+.menunggu {
+  color: #f59e0b;
+}
+
+.diproses {
+  color: #3b82f6;
+}
+
+.diantar {
+  color: #22c55e;
+}
+
+.selesai {
+  color: #94a3b8;
+}
+
+/* ================= ANIMASI ================= */
+
+.blink {
+  animation: blink 1s infinite alternate;
+}
+
+@keyframes blink {
+  from { opacity: 1; }
+  to { opacity: 0.5; }
+}
+
+.flash {
+  animation: zoom 0.4s ease;
+}
+
+@keyframes zoom {
+  0% { transform: scale(0.6); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.fade-out {
+  animation: fadeOut 1s forwards;
+}
+
+@keyframes fadeOut {
+  to {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+}
+</style>
+</head>
+
+<body>
+
+<button onclick="window.location='menu.html'" style="position:absolute; top:10px; left:10px; background:#64748b;">
+  ⬅️
+</button>
+
+<h1>📺 ANTRIAN</h1>
+
+<div>
+  <div id="bigNumber" class="big">A000</div>
+  <div id="bigStatus" class="status-big"></div>
+</div>
+
+<div class="container" id="list"></div>
+
+<script>
+
+let lastStatus = {};
+let firstLoad = true;
+
+/* ================= SUARA ================= */
+function panggil(nomor, status) {
+  let text = "";
+
+  if (status === "menunggu") {
+    text = `Order A${nomor} baru masuk ya, siap diproses`;
+  }
+
+  if (status === "diproses") {
+    text = `Order A${nomor} lagi kita siapin, mohon ditunggu`;
+  }
+
+  if (status === "diantar") {
+    text = `Order A${nomor} lagi di jalan, ditunggu ya`;
+  }
+
+  if (status === "selesai") {
+    text = `Order A${nomor} sudah selesai, terima kasih`;
+  }
+
+  if (!text) return;
+
+  const suara = new SpeechSynthesisUtterance(text);
+  suara.lang = "id-ID";
+  suara.rate = 0.95;
+
+  speechSynthesis.cancel();
+  speechSynthesis.speak(suara);
+}
+
+/* ================= LOAD ================= */
+function loadAntrian() {
+  fetch("/orders?nocache=" + Date.now())
+    .then(res => res.json())
+    .then(data => {
+
+      if (data.length === 0) return;
+
+      const maxId = Math.max(...data.map(o => o.id));
+      const utama = data.find(o => o.id === maxId);
+
+      const nomorUtama = String(utama.antrian).padStart(3,"0");
+      const statusUtama = utama.status.toLowerCase().trim();
+
+      /* ================= NOMOR BESAR ================= */
+
+      const big = document.getElementById("bigNumber");
+      const statusEl = document.getElementById("bigStatus");
+
+      big.innerText = "A" + nomorUtama;
+      statusEl.innerText = utama.status;
+
+      big.classList.add("flash");
+      setTimeout(() => big.classList.remove("flash"), 400);
+
+      /* ================= SUARA ================= */
+
+      if (!firstLoad && (!lastStatus[utama.id] || lastStatus[utama.id] !== statusUtama)) {
+        panggil(nomorUtama, statusUtama);
+      }
+
+      lastStatus[utama.id] = statusUtama;
+
+      /* ================= LIST ================= */
+
+      const list = document.getElementById("list");
+      list.innerHTML = "";
+
+      data.forEach(o => {
+        const nomor = String(o.antrian).padStart(3,"0");
+        const status = o.status.toLowerCase().trim();
+
+        const div = document.createElement("div");
+        div.className = "card";
+
+        let warna = "";
+
+        if (status === "menunggu") warna = "menunggu";
+        if (status === "diproses") warna = "diproses";
+        if (status === "diantar") warna = "diantar";
+        if (status === "selesai") warna = "selesai";
+
+        // blink khusus MENUNGGU terbaru
+        if (status === "menunggu" && o.id === maxId) {
+          div.classList.add("blink");
+        }
+
+        // fade out kalau selesai
+        if (status === "selesai") {
+          setTimeout(() => {
+            div.classList.add("fade-out");
+          }, 2000);
+        }
+
+        div.innerHTML = `
+          <div>A${nomor}</div>
+          <div class="${warna}">${o.status}</div>
+        `;
+
+        list.appendChild(div);
+      });
+
+      firstLoad = false;
+
+    });
+}
+
+/* ================= REALTIME ================= */
+setInterval(loadAntrian, 2000);
+loadAntrian();
+
+</script>
+
+</body>
+</html>
+
+cs.html
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>CS</title>
+<link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+<div class="container">
+
+<button onclick="window.location='menu.html'" style="background:#64748b; margin-bottom:10px;">
+  ⬅️ Kembali ke Menu
+</button>
+
+<h2>💬 Customer Service</h2>
+
+  <p>Nanti bisa isi chat / WhatsApp / dll</p>
+
+  <button onclick="window.location='menu.html'" style="background:#64748b; margin:10px;">
+  ⬅️ Kembali
+</button>
+
+</body>
+</html>
+
+index.html
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Order App</title>
+<link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+<div class="container">
+
+<button onclick="window.location='menu.html'" style="background:#64748b; margin-bottom:10px;">
+  ⬅️ Kembali ke Menu
+</button>
+
+<h1 style="text-align:center;">🍜 Order Makanan</h1>
+<p style="text-align:center; color:#666;">Pilih menu favorit kamu</p>
+
+<!-- MENU -->
+<div class="menu">
+
+  <div class="card">
+    <img src="https://source.unsplash.com/300x300/?nasi">
+    <h3>Nasi Ayam</h3>
+    <p>Rp 15.000</p>
+    <button onclick="tambah('Nasi Ayam',15000)">Tambah</button>
+  </div>
+
+  <div class="card">
+    <img src="https://source.unsplash.com/300x300/?mie">
+    <h3>Mie Pedas</h3>
+    <p>Rp 12.000</p>
+    <button onclick="tambah('Mie Pedas',12000)">Tambah</button>
+  </div>
+
+</div>
+
+<!-- KERANJANG -->
+<h2>🛒 Keranjang</h2>
+<ul id="keranjang"></ul>
+
+<p class="total">Total: <b id="total">Rp 0</b></p>
+
+<!-- FORM -->
+<input id="nama" placeholder="Nama">
+
+<select id="alamat">
+  <option value="">Pilih alamat</option>
+  <option value="Pacet" data-ongkir="1000">Pacet - Rp 1.000</option>
+  <option value="Majalaya" data-ongkir="2000">Majalaya - Rp 2.000</option>
+</select>
+
+<select id="pembayaran">
+  <option value="">Pembayaran</option>
+  <option value="COD">COD</option>
+  <option value="QRIS">QRIS</option>
+</select>
+
+<!-- STATUS -->
+<div id="statusBox"></div>
+
+<!-- BUTTON PESAN -->
+<div class="footer">
+  <button onclick="checkout()">Pesan Sekarang</button>
+</div>
+
+</div>
+
+<!-- QRIS MODAL -->
+<div id="qrisBox">
+  <div class="content">
+    <h3>QRIS</h3>
+    <p id="totalBayar"></p>
+
+    <input type="checkbox" id="konfirmasi"> Sudah bayar
+    <br><br>
+
+    <button onclick="lanjutOrder()">Kirim</button>
+  </div>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
+
+login.html
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Login</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="container">
+<h2>🔐 Login Admin</h2>
+
+<input id="user" placeholder="Username">
+<input id="pass" type="password" placeholder="Password">
+
+<button onclick="login()">Login</button>
+<p id="msg" style="color:red;"></p>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
+
+statistik.html
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>Statistik</title>
+<link rel="stylesheet" href="style.css">
+</head>
+
+<body onload="loadStats()">
+
+<div class="container">
+
+<button onclick="window.location='menu.html'" style="background:#64748b; margin-bottom:10px;">
+  ⬅️ Kembali ke Menu
+</button>
+
+<h2>📊 Statistik Harian</h2>
+
+  <div id="stats" class="card">Loading...</div>
+
+  <br>
+  <button onclick="window.location='menu.html'" style="background:#64748b; margin:10px;">
+  ⬅️ Kembali
+</button>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
+
+style.css
+
+/* ================= GLOBAL ================= */
+
+body {
+  font-family: 'Segoe UI', sans-serif;
+  background: #f8fafc;
+  margin: 0;
+  padding: 0;
+}
+
+/* ================= CONTAINER ================= */
+
+.container {
+  max-width: 500px;
+  margin: auto;
+  padding: 20px;
+}
+
+/* ================= CARD ================= */
+
+.card {
+  background: white;
+  border-radius: 18px;
+  padding: 15px;
+  margin-bottom: 15px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+  transition: 0.2s;
+}
+
+.card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 15px 30px rgba(0,0,0,0.08);
+}
+
+.card img {
+  width: 100%;
+  height: 120px;
+  object-fit: cover;
+  border-radius: 12px;
+}
+
+.card h3 {
+  margin: 8px 0 4px;
+}
+
+.card p {
+  margin: 0;
+  color: #666;
+}
+
+/* ================= BUTTON ================= */
+
+button {
+  border: none;
+  border-radius: 12px;
+  padding: 10px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: 0.2s;
+  width: 100%;
+  background: #22c55e;
+  color: white;
+}
+
+button:hover {
+  opacity: 0.9;
+}
+
+button:active {
+  transform: scale(0.96);
+}
+
+/* ================= STATUS ================= */
+
+.status {
+  margin-top: 10px;
+  padding: 8px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: bold;
+  text-align: center;
+}
+
+.menunggu { background: #fef3c7; color: #92400e; }
+.diproses { background: #dbeafe; color: #1e40af; }
+.diantar { background: #ede9fe; color: #5b21b6; }
+.selesai { background: #dcfce7; color: #166534; }
+
+/* ================= ADMIN BUTTON ================= */
+
+.status-btns {
+  display: flex;
+  gap: 5px;
+  margin-top: 10px;
+}
+
+.status-btns button {
+  flex: 1;
+  padding: 6px;
+  font-size: 11px;
+  border-radius: 8px;
+  color: white;
+}
+
+.btn-menunggu { background: #f59e0b; }
+.btn-diproses { background: #3b82f6; }
+.btn-diantar { background: #8b5cf6; }
+.btn-selesai { background: #22c55e; }
+
+.active-status {
+  outline: 2px solid black;
+}
+
+/* ================= INPUT ================= */
+
+input, select {
+  width: 100%;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  margin-top: 8px;
+}
+
+/* ================= QRIS BOX ================= */
+
+#qrisBox {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.5);
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+
+#qrisBox .content {
+  background: white;
+  padding: 20px;
+  border-radius: 15px;
+  text-align: center;
+}
+
+.menu {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+#keranjang li {
+  list-style: none;
+  padding: 10px;
+  margin-top: 5px;
+  background: #f1f5f9;
+  border-radius: 10px;
+}
+
+h2 {
+  margin-top: 20px;
+}
+
+.total {
+  margin-top: 10px;
+  font-size: 16px;
+}
+
+.footer {
+  margin-top: 20px;
+}
+
+.footer button {
+  font-size: 16px;
+  padding: 12px;
+  border-radius: 14px;
+}
+
+.menu-admin {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.menu-admin button {
+  padding: 15px;
+  font-size: 14px;
+  border-radius: 14px;
+}
+
 script.js
+
 let keranjang = [];
 let currentOrderId = null;
 
@@ -732,216 +1883,116 @@ function login() {
   .then(res => res.json())
   .then(data => {
     if (data.success) {
-      window.location = "admin.html";
-    } else {
+  localStorage.setItem("isLogin", "true");
+  window.location = "menu.html"; // 🔥 masuk dashboard
+} else {
       document.getElementById("msg").innerText = "Login gagal!";
     }
   });
 }
 
 function logout() {
+  localStorage.removeItem("isLogin");
   window.location = "login.html";
 }
 
-statistik.html
-<!DOCTYPE html>
-<html lang="id">
-<head>
-<meta charset="UTF-8">
-<title>Statistik</title>
-<link rel="stylesheet" href="style.css">
-</head>
+function cekLogin() {
+  const isLogin = localStorage.getItem("isLogin");
 
-<body onload="loadStats()">
+  if (!isLogin) {
+    alert("Harus login dulu!");
+    window.location = "login.html";
+    return;
+  }
+  
+  function loadStats() {
+  fetch("/orders")
+    .then(res => res.json())
+    .then(data => {
 
-<div class="container">
-  <h2>📊 Statistik Harian</h2>
+      let totalOrder = data.length;
+      let totalUang = data.reduce((sum, o) => sum + o.total, 0);
 
-  <div id="stats" class="card">Loading...</div>
+      let selesai = data.filter(o => o.status === "Selesai").length;
+      let proses = data.filter(o => o.status === "Diproses").length;
+      let menunggu = data.filter(o => o.status === "Menunggu").length;
 
-  <br>
-  <button onclick="window.location='menu.html'" style="background:#64748b; margin:10px;">
-  ⬅️ Kembali
-</button>
-</div>
+      document.getElementById("stats").innerHTML = `
+        <b>Total Order:</b> ${totalOrder}<br>
+        <b>Total Pendapatan:</b> Rp ${totalUang}<br><br>
 
-<script src="script.js"></script>
+        🟡 Menunggu: ${menunggu}<br>
+        🔵 Diproses: ${proses}<br>
+        🟢 Selesai: ${selesai}
+      `;
+    });
+}
+
+  initAdmin();
+}
+
+package.json
+
+{
+  "name": "order-app",
+  "version": "1.0.0",
+  "description": "simple order app",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": "18.x"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "mysql2": "^3.21.1"
+  }
+}
+
+privacy.html
+
+<h2>Privacy Policy</h2>
+<p>Kami tidak menyimpan data sensitif pengguna.</p>
+
+about.html
+
+<h2>Tentang Kami</h2>
+<p>Website pemesanan makanan online.</p>
+
+contact.html
+
+<h2>Kontak</h2>
+<p>Email: omitmuya@gmail.com</p>
+
+home.html
+
+<body>
+
+<h1>🍜 Warung Makan Online</h1>
+
+<p>
+Selamat datang di website Warung Makan kami. Kami menyediakan berbagai pilihan makanan lezat seperti nasi ayam dan mie pedas dengan harga terjangkau.
+</p>
+
+<p>
+Layanan kami memudahkan pelanggan untuk memesan makanan secara online dengan sistem antrian yang teratur dan cepat.
+</p>
+
+<p>
+Kami melayani area Pacet dan Majalaya dengan biaya pengiriman yang terjangkau. Anda juga dapat memilih metode pembayaran COD atau QRIS.
+</p>
+
+<p>
+Silakan login untuk admin untuk mengelola pesanan dan melihat statistik penjualan secara real-time.
+</p>
+
+<br>
+
+<a href="login.html">🔐 Login Admin</a>
+
 </body>
-</html>
 
-style.css
-/* ================= GLOBAL ================= */
+ads.txt
 
-body {
-  font-family: 'Segoe UI', sans-serif;
-  background: #f8fafc;
-  margin: 0;
-  padding: 0;
-}
-
-/* ================= CONTAINER ================= */
-
-.container {
-  max-width: 500px;
-  margin: auto;
-  padding: 20px;
-}
-
-/* ================= CARD ================= */
-
-.card {
-  background: white;
-  border-radius: 18px;
-  padding: 15px;
-  margin-bottom: 15px;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.05);
-  transition: 0.2s;
-}
-
-.card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 15px 30px rgba(0,0,0,0.08);
-}
-
-.card img {
-  width: 100%;
-  height: 120px;
-  object-fit: cover;
-  border-radius: 12px;
-}
-
-.card h3 {
-  margin: 8px 0 4px;
-}
-
-.card p {
-  margin: 0;
-  color: #666;
-}
-
-/* ================= BUTTON ================= */
-
-button {
-  border: none;
-  border-radius: 12px;
-  padding: 10px;
-  cursor: pointer;
-  font-weight: bold;
-  transition: 0.2s;
-  width: 100%;
-  background: #22c55e;
-  color: white;
-}
-
-button:hover {
-  opacity: 0.9;
-}
-
-button:active {
-  transform: scale(0.96);
-}
-
-/* ================= STATUS ================= */
-
-.status {
-  margin-top: 10px;
-  padding: 8px;
-  border-radius: 10px;
-  font-size: 12px;
-  font-weight: bold;
-  text-align: center;
-}
-
-.menunggu { background: #fef3c7; color: #92400e; }
-.diproses { background: #dbeafe; color: #1e40af; }
-.diantar { background: #ede9fe; color: #5b21b6; }
-.selesai { background: #dcfce7; color: #166534; }
-
-/* ================= ADMIN BUTTON ================= */
-
-.status-btns {
-  display: flex;
-  gap: 5px;
-  margin-top: 10px;
-}
-
-.status-btns button {
-  flex: 1;
-  padding: 6px;
-  font-size: 11px;
-  border-radius: 8px;
-  color: white;
-}
-
-.btn-menunggu { background: #f59e0b; }
-.btn-diproses { background: #3b82f6; }
-.btn-diantar { background: #8b5cf6; }
-.btn-selesai { background: #22c55e; }
-
-.active-status {
-  outline: 2px solid black;
-}
-
-/* ================= INPUT ================= */
-
-input, select {
-  width: 100%;
-  padding: 10px;
-  border-radius: 10px;
-  border: 1px solid #e5e7eb;
-  margin-top: 8px;
-}
-
-/* ================= QRIS BOX ================= */
-
-#qrisBox {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0,0,0,0.5);
-  display: none;
-  align-items: center;
-  justify-content: center;
-}
-
-#qrisBox .content {
-  background: white;
-  padding: 20px;
-  border-radius: 15px;
-  text-align: center;
-}
-
-.menu {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
-
-#keranjang li {
-  list-style: none;
-  padding: 10px;
-  margin-top: 5px;
-  background: #f1f5f9;
-  border-radius: 10px;
-}
-
-h2 {
-  margin-top: 20px;
-}
-
-.total {
-  margin-top: 10px;
-  font-size: 16px;
-}
-
-.footer {
-  margin-top: 20px;
-}
-
-.footer button {
-  font-size: 16px;
-  padding: 12px;
-  border-radius: 14px;
-}
+google.com, pub-8095439751167847, DIRECT, f08c47fec0942fa0

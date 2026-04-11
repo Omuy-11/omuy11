@@ -85,17 +85,21 @@ function kirimOrder(nama, alamat, pembayaran, total) {
       pembayaran
     })
   })
-  .then(res => res.json()) // 🔥 INI YANG KURANG
-  .then(data => {
-    currentOrderId = data.id;
+  .then(res => res.json())
+.then(data => {
+  if (!data || !data.antrian) {
+    alert("Server error, coba lagi!");
+    return;
+  }
 
-    alert("Nomor Antrian Kamu: A" + String(data.antrian).padStart(3, "0"));
+  currentOrderId = data.id;
 
-    keranjang = [];
-    renderKeranjang();
-    mulaiPantauStatus();
-  });
-}
+  alert("Nomor Antrian Kamu: A" + String(data.antrian).padStart(3, "0"));
+
+  keranjang = [];
+  renderKeranjang();
+  mulaiPantauStatus();
+});
 
 function mulaiPantauStatus() {
   setInterval(() => {
@@ -218,12 +222,16 @@ function cekLogin() {
     window.location = "login.html";
     return;
   }
-  
-  function loadStats() {
+
+  initAdmin();
+}
+
+/* ================= STATISTIK ================= */
+
+function loadStats() {
   fetch("/orders")
     .then(res => res.json())
     .then(data => {
-
       let totalOrder = data.length;
       let totalUang = data.reduce((sum, o) => sum + o.total, 0);
 

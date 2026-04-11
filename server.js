@@ -58,7 +58,11 @@ app.post("/order", (req, res) => {
       });
     }
 
-    let last = result[0]?.last || 0;
+    let last = 0;
+
+if (result && result[0] && result[0].last) {
+  last = result[0].last;
+}
     let nextAntrian = last + 1;
 
     db.query(
