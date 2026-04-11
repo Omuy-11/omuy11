@@ -17,9 +17,24 @@ const db = mysql.createConnection({
 
 db.connect(err => {
   if (err) {
-    console.log("❌ DB Error (skip for Railway)");
+    console.log("❌ DB Error:", err);
   } else {
     console.log("✅ MySQL Connected");
+
+    // 🔥 AUTO BUAT TABLE
+    db.query(`
+      CREATE TABLE IF NOT EXISTS orders (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        nama VARCHAR(100),
+        items TEXT,
+        total INT,
+        alamat VARCHAR(100),
+        pembayaran VARCHAR(50),
+        antrian INT,
+        status VARCHAR(50),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
   }
 });
 
@@ -60,10 +75,11 @@ app.post("/order", (req, res) => {
 
     let last = 0;
 
-if (result && result[0] && result[0].last) {
+if (result && result[0] && result[0].last != null) {
   last = result[0].last;
 }
-    let nextAntrian = last + 1;
+
+let nextAntrian = parseInt(last) + 1;
 
     db.query(
       "INSERT INTO orders (nama, items, total, alamat, pembayaran, antrian, status) VALUES (?, ?, ?, ?, ?, ?, ?)",

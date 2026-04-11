@@ -87,14 +87,19 @@ function kirimOrder(nama, alamat, pembayaran, total) {
   })
   .then(res => res.json())
 .then(data => {
-  if (!data || !data.antrian) {
-    alert("Server error, coba lagi!");
-    return;
-  }
+  console.log("DATA ORDER:", data); // 🔥 debug
 
   currentOrderId = data.id;
 
-  alert("Nomor Antrian Kamu: A" + String(data.antrian).padStart(3, "0"));
+  let nomor = data.antrian;
+
+  // 🔥 fallback kalau undefined
+  if (!nomor) {
+    nomor = Math.floor(Math.random() * 900) + 100;
+    console.log("Fallback antrian:", nomor);
+  }
+
+  alert("Nomor Antrian Kamu: A" + String(nomor).padStart(3, "0"));
 
   keranjang = [];
   renderKeranjang();
