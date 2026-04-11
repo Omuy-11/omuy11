@@ -20,21 +20,6 @@ db.connect(err => {
     console.log("❌ DB Error:", err);
   } else {
     console.log("✅ MySQL Connected");
-
-    // 🔥 AUTO BUAT TABLE
-    db.query(`
-      CREATE TABLE IF NOT EXISTS orders (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        nama VARCHAR(100),
-        items TEXT,
-        total INT,
-        alamat VARCHAR(100),
-        pembayaran VARCHAR(50),
-        antrian INT,
-        status VARCHAR(50),
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
   }
 });
 
