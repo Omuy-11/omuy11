@@ -107,7 +107,7 @@ let nextAntrian = parseInt(last) + 1;
 
 // GET ORDERS
 app.get("/orders", (req, res) => {
-  db.query("SELECT * FROM orders ORDER BY created_at DESC", (err, results) => {
+  db.query("SELECT * FROM orders ORDER BY id DESC", (err, results) => {
     if (err) return res.status(500).json(err);
 
     const data = results.map(o => ({
