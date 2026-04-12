@@ -9,7 +9,13 @@ app.use(express.static("public"));
 
 /* ================= DATABASE ================= */
 
-const db = mysql.createConnection(process.env.DB_URL);
+const db = mysql.createConnection({
+  host: process.env.MYSQLHOST,
+  user: process.env.MYSQLUSER,
+  password: process.env.MYSQLPASSWORD,
+  database: process.env.MYSQLDATABASE,
+  port: process.env.MYSQLPORT
+});
 
 db.connect(err => {
   if (err) {
