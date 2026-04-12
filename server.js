@@ -1,5 +1,6 @@
 const express = require("express");
 const mysql = require("mysql2");
+const crypto = require("crypto");
 
 const app = express();
 
@@ -9,11 +10,10 @@ app.use(express.static("public"));
 /* ================= DATABASE ================= */
 
 const db = mysql.createConnection({
-  host: "metro.proxy.rlwy.net",
-  user: "root",
-  password: "TLxyeTnWCVpVxuTBabyngbSXFrgNJPbf",
-  database: "railway",
-  port: 28940
+  host: process.env.DB_HOST || "localhost",
+  user: process.env.DB_USER || "root",
+  password: process.env.DB_PASS || "",
+  database: process.env.DB_NAME || "order_app"
 });
 
 db.connect(err => {
@@ -31,54 +31,67 @@ const ADMIN = {
   pass: "rayaa"
 };
 
+// 🔥 SESSION SEDERHANA
+let sessions = {};
+
 app.post("/login", (req, res) => {
   const { user, pass } = req.body;
 
   if (user === ADMIN.user && pass === ADMIN.pass) {
-    res.json({ success: true });
+
+    const token = crypto.randomBytes(16).toString("hex");
+
+    sessions[token] = true;
+
+    res.json({ success: true, token });
+
   } else {
     res.json({ success: false });
   }
 });
 
+// 🔥 MIDDLEWARE AUTH
+function auth(req, res, next) {
+  const token = req.headers["authorization"];
+
+  if (!token || !sessions[token]) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  next();
+}
+
 /* ================= ORDER ================= */
 
-// CREATE ORDER + ANTRIAN
+// CREATE ORDER (PUBLIC)
 app.post("/order", (req, res) => {
   const { nama, items, total, alamat, pembayaran } = req.body;
 
   db.query("SELECT MAX(antrian) as last FROM orders", (err, result) => {
 
-    // 🔥 kalau DB error → pakai fallback
     if (err || !result) {
-      console.log("DB error, pakai antrian sementara");
-
       return res.json({
         id: Date.now(),
-        antrian: Math.floor(Math.random() * 900) + 100 // 100-999
+        antrian: Math.floor(Math.random() * 900) + 100
       });
     }
 
     let last = 0;
+    if (result[0] && result[0].last != null) {
+      last = result[0].last;
+    }
 
-if (result && result[0] && result[0].last != null) {
-  last = result[0].last;
-}
-
-let nextAntrian = parseInt(last) + 1;
+    let nextAntrian = parseInt(last) + 1;
 
     db.query(
       "INSERT INTO orders (nama, items, total, alamat, pembayaran, antrian, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
       [nama, JSON.stringify(items), total, alamat, pembayaran, nextAntrian, "Menunggu"],
       (err2, result2) => {
 
-        // 🔥 kalau insert gagal → fallback juga
         if (err2) {
-          console.log("Insert gagal, pakai fallback");
-
           return res.json({
             id: Date.now(),
-            antrian: nextAntrian || Math.floor(Math.random() * 900) + 100
+            antrian: nextAntrian
           });
         }
 
@@ -91,25 +104,17 @@ let nextAntrian = parseInt(last) + 1;
   });
 });
 
-// GET ORDERS
-app.get("/orders", (req, res) => {
-  db.query("SELECT * FROM orders ORDER BY id DESC", (err, results) => {
+// 🔥 PROTECTED (HARUS LOGIN)
+app.get("/public-orders", (req, res) => {
+  db.query("SELECT id, antrian, status FROM orders ORDER BY id DESC LIMIT 20", (err, results) => {
     if (err) return res.status(500).json(err);
 
-    const data = results.map(o => ({
-      ...o,
-      items: o.items ? JSON.parse(o.items) : []
-    }));
-
-    res.json(data);
+    res.json(results);
   });
 });
 
-// UPDATE STATUS
-app.put("/order/:id", (req, res) => {
+app.put("/order/:id", auth, (req, res) => {
   const { status } = req.body;
-
-  console.log("UPDATE:", req.params.id, status); // 👈 DEBUG
 
   db.query(
     "UPDATE orders SET status=? WHERE id=?",
@@ -121,8 +126,7 @@ app.put("/order/:id", (req, res) => {
   );
 });
 
-// DELETE ORDER
-app.delete("/order/:id", (req, res) => {
+app.delete("/order/:id", auth, (req, res) => {
   db.query(
     "DELETE FROM orders WHERE id=?",
     [req.params.id],

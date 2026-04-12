@@ -2,6 +2,7 @@ server.js
 
 const express = require("express");
 const mysql = require("mysql2");
+const crypto = require("crypto");
 
 const app = express();
 
@@ -32,54 +33,67 @@ const ADMIN = {
   pass: "rayaa"
 };
 
+// 🔥 SESSION SEDERHANA
+let sessions = {};
+
 app.post("/login", (req, res) => {
   const { user, pass } = req.body;
 
   if (user === ADMIN.user && pass === ADMIN.pass) {
-    res.json({ success: true });
+
+    const token = crypto.randomBytes(16).toString("hex");
+
+    sessions[token] = true;
+
+    res.json({ success: true, token });
+
   } else {
     res.json({ success: false });
   }
 });
 
+// 🔥 MIDDLEWARE AUTH
+function auth(req, res, next) {
+  const token = req.headers["authorization"];
+
+  if (!token || !sessions[token]) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  next();
+}
+
 /* ================= ORDER ================= */
 
-// CREATE ORDER + ANTRIAN
+// CREATE ORDER (PUBLIC)
 app.post("/order", (req, res) => {
   const { nama, items, total, alamat, pembayaran } = req.body;
 
   db.query("SELECT MAX(antrian) as last FROM orders", (err, result) => {
 
-    // 🔥 kalau DB error → pakai fallback
     if (err || !result) {
-      console.log("DB error, pakai antrian sementara");
-
       return res.json({
         id: Date.now(),
-        antrian: Math.floor(Math.random() * 900) + 100 // 100-999
+        antrian: Math.floor(Math.random() * 900) + 100
       });
     }
 
     let last = 0;
+    if (result[0] && result[0].last != null) {
+      last = result[0].last;
+    }
 
-if (result && result[0] && result[0].last != null) {
-  last = result[0].last;
-}
-
-let nextAntrian = parseInt(last) + 1;
+    let nextAntrian = parseInt(last) + 1;
 
     db.query(
       "INSERT INTO orders (nama, items, total, alamat, pembayaran, antrian, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
       [nama, JSON.stringify(items), total, alamat, pembayaran, nextAntrian, "Menunggu"],
       (err2, result2) => {
 
-        // 🔥 kalau insert gagal → fallback juga
         if (err2) {
-          console.log("Insert gagal, pakai fallback");
-
           return res.json({
             id: Date.now(),
-            antrian: nextAntrian || Math.floor(Math.random() * 900) + 100
+            antrian: nextAntrian
           });
         }
 
@@ -92,25 +106,17 @@ let nextAntrian = parseInt(last) + 1;
   });
 });
 
-// GET ORDERS
-app.get("/orders", (req, res) => {
-  db.query("SELECT * FROM orders ORDER BY id DESC", (err, results) => {
+// 🔥 PROTECTED (HARUS LOGIN)
+app.get("/public-orders", (req, res) => {
+  db.query("SELECT id, antrian, status FROM orders ORDER BY id DESC LIMIT 20", (err, results) => {
     if (err) return res.status(500).json(err);
 
-    const data = results.map(o => ({
-      ...o,
-      items: o.items ? JSON.parse(o.items) : []
-    }));
-
-    res.json(data);
+    res.json(results);
   });
 });
 
-// UPDATE STATUS
-app.put("/order/:id", (req, res) => {
+app.put("/order/:id", auth, (req, res) => {
   const { status } = req.body;
-
-  console.log("UPDATE:", req.params.id, status); // 👈 DEBUG
 
   db.query(
     "UPDATE orders SET status=? WHERE id=?",
@@ -122,8 +128,7 @@ app.put("/order/:id", (req, res) => {
   );
 });
 
-// DELETE ORDER
-app.delete("/order/:id", (req, res) => {
+app.delete("/order/:id", auth, (req, res) => {
   db.query(
     "DELETE FROM orders WHERE id=?",
     [req.params.id],
@@ -141,6 +146,7 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log("🔥 Server jalan di port " + PORT);
 });
+
 
 admin.html
 
@@ -272,7 +278,8 @@ body {
 
 <body>
 
-<button onclick="window.location='menu.html'" style="position:absolute; top:10px; left:10px; background:#64748b;">
+<button onclick="window.location.href='index.html'" 
+style="position:absolute; top:10px; left:10px; background:#64748b;">
   ⬅️
 </button>
 
@@ -286,6 +293,8 @@ body {
 <div class="container" id="list"></div>
 
 <script>
+
+const BASE_URL = "https://omuy11-production.up.railway.app";
 
 speechSynthesis.cancel(); // 🔥 TARUH DI SINI
 
@@ -337,9 +346,14 @@ function panggil(nomor, status) {
 
 /* ================= LOAD ================= */
 function loadAntrian() {
-  fetch("/orders?nocache=" + Date.now())
+  fetch(BASE_URL + "/public-orders")
+  headers: {
+    "Authorization": localStorage.getItem("token") || ""
+  }
+})
     .then(res => res.json())
     .then(data => {
+	console.log("DATA ANTRIAN:", data);
 
       if (!data || data.length === 0) {
   document.getElementById("bigNumber").innerText = "A000";
@@ -795,7 +809,7 @@ script.js
 let keranjang = [];
 let currentOrderId = null;
 
-BASE_URL = "https://omuy11-production.up.railway.app"
+const BASE_URL = "https://omuy11-production.up.railway.app";
 
 /* ================= TAMBAH ITEM ================= */
 
@@ -804,11 +818,13 @@ function tambah(nama, harga) {
   renderKeranjang();
 }
 
-/* ================= RENDER KERANJANG ================= */
+/* ================= RENDER ================= */
 
 function renderKeranjang() {
   const list = document.getElementById("keranjang");
   const totalEl = document.getElementById("total");
+
+  if (!list || !totalEl) return;
 
   list.innerHTML = "";
 
@@ -868,7 +884,7 @@ function lanjutOrder() {
 /* ================= KIRIM ORDER ================= */
 
 function kirimOrder(nama, alamat, pembayaran, total) {
-  fetch(BASE_URL + "/order", {
+  fetch(BASE_URL + "/order", {   // ✅ FIX ENDPOINT
     method: "POST",
     headers: {
       "Content-Type": "application/json"
@@ -883,13 +899,17 @@ function kirimOrder(nama, alamat, pembayaran, total) {
   })
     .then(res => res.json())
     .then(data => {
-      console.log("DATA ORDER:", data);
+      console.log("ORDER MASUK:", data);
 
       currentOrderId = data.id;
 
       let nomor = data.antrian || 0;
 
       alert("Nomor Antrian Kamu: A" + String(nomor).padStart(3, "0"));
+
+      setTimeout(() => {
+        window.open("antrian.html", "_blank");
+      }, 500);
 
       keranjang = [];
       renderKeranjang();
@@ -902,7 +922,7 @@ function kirimOrder(nama, alamat, pembayaran, total) {
 
 function mulaiPantauStatus() {
   setInterval(() => {
-    fetch(BASE_URL + "/orders")
+    fetch(BASE_URL + "/public-orders") // ini public jadi ga perlu auth
       .then(res => res.json())
       .then(data => {
         const order = data.find(o => o.id == currentOrderId);
@@ -915,6 +935,7 @@ function mulaiPantauStatus() {
 
 function tampilkanStatus(status) {
   const box = document.getElementById("statusBox");
+  if (!box) return;
 
   let className = "";
 
@@ -934,22 +955,36 @@ function initAdmin() {
 }
 
 function loadOrders() {
-  fetch(BASE_URL + "/orders")
-    .then(res => res.json())
+  fetch(BASE_URL + "/public-orders", {
+    headers: {
+      "Authorization": localStorage.getItem("token") || ""
+    }
+  })
+    .then(res => {
+      if (res.status === 401) {
+        logout();
+        return;
+      }
+      return res.json();
+    })
     .then(data => {
+      if (!data) return;
+
       const container = document.getElementById("orders");
       if (!container) return;
 
       container.innerHTML = "";
 
       data.forEach(o => {
+        const items = JSON.parse(o.items || "[]"); // ✅ FIX parse
+
         const div = document.createElement("div");
         div.className = "card";
 
         div.innerHTML = `
   <b>🧾 A${String(o.antrian).padStart(3,"0")}</b><br>
-  <b>${o.nama}</b><br>
-  ${o.items.map(i => i.nama).join(", ")}<br>
+  <b>${o.nama || "-"}</b><br>
+  ${items.map(i => i.nama).join(", ")}<br>
   Rp ${o.total}<br>
 
   <div class="status-btns">
@@ -970,14 +1005,20 @@ function loadOrders() {
 function updateStatus(id, status) {
   fetch(BASE_URL + "/order/" + id, {
     method: "PUT",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": localStorage.getItem("token")
+    },
     body: JSON.stringify({ status })
   });
 }
 
 function hapus(id) {
   fetch(BASE_URL + "/order/" + id, {
-    method: "DELETE"
+    method: "DELETE",
+    headers: {
+      "Authorization": localStorage.getItem("token")
+    }
   });
 }
 
@@ -995,7 +1036,7 @@ function login() {
   .then(res => res.json())
   .then(data => {
     if (data.success) {
-      localStorage.setItem("isLogin", "true");
+      localStorage.setItem("token", data.token);
       window.location = "menu.html";
     } else {
       document.getElementById("msg").innerText = "Login gagal!";
@@ -1004,14 +1045,14 @@ function login() {
 }
 
 function logout() {
-  localStorage.removeItem("isLogin");
+  localStorage.removeItem("token");
   window.location = "login.html";
 }
 
 function cekLogin() {
-  const isLogin = localStorage.getItem("isLogin");
+  const token = localStorage.getItem("token");
 
-  if (!isLogin) {
+  if (!token) {
     alert("Harus login dulu!");
     window.location = "login.html";
     return;
@@ -1023,7 +1064,7 @@ function cekLogin() {
 /* ================= STATISTIK ================= */
 
 function loadStats() {
-  fetch(BASE_URL + "/orders")
+  fetch(BASE_URL + "/public-orders")
     .then(res => res.json())
     .then(data => {
       let totalOrder = data.length;
@@ -1033,7 +1074,10 @@ function loadStats() {
       let proses = data.filter(o => o.status === "Diproses").length;
       let menunggu = data.filter(o => o.status === "Menunggu").length;
 
-      document.getElementById("stats").innerHTML = `
+      const el = document.getElementById("stats");
+      if (!el) return;
+
+      el.innerHTML = `
         <b>Total Order:</b> ${totalOrder}<br>
         <b>Total Pendapatan:</b> Rp ${totalUang}<br><br>
 
@@ -1054,8 +1098,6 @@ menu.html
 <title>Menu</title>
 <link rel="stylesheet" href="style.css">
 </head>
-
-<body>
 
 <body onload="cekLogin()">
 
@@ -1239,9 +1281,10 @@ function panggil(nomor, status) {
 
 /* ================= LOAD ================= */
 function loadAntrian() {
-  fetch(BASE_URL + "/orders?nocache=" + Date.now())
-    .then(res => res.json())
-    .then(data => {
+  fetch(BASE_URL + "/public-orders")
+  .then(res => res.json())
+  .then(data => {
+  
 	console.log("DATA ANTRIAN:", data);
 
       if (!data || data.length === 0) {
@@ -1773,7 +1816,7 @@ function lanjutOrder() {
 /* ================= KIRIM ORDER ================= */
 
 function kirimOrder(nama, alamat, pembayaran, total) {
-  fetch(BASE_URL + "/order", {
+  fetch(BASE_URL + "/public-orders")
     method: "POST",
     headers: {
       "Content-Type": "application/json"
@@ -1811,7 +1854,11 @@ setTimeout(() => {
 
 function mulaiPantauStatus() {
   setInterval(() => {
-    fetch(BASE_URL + "/orders")
+    fetch(BASE_URL + "/public-orders")
+  headers: {
+    "Authorization": localStorage.getItem("token") || ""
+  }
+})
       .then(res => res.json())
       .then(data => {
         const order = data.find(o => o.id == currentOrderId);
@@ -1844,7 +1891,11 @@ function initAdmin() {
 }
 
 function loadOrders() {
-  fetch(BASE_URL + "/orders")
+  fetch(BASE_URL + "/public-orders")
+  headers: {
+    "Authorization": localStorage.getItem("token") || ""
+  }
+})
     .then(res => res.json())
     .then(data => {
       const container = document.getElementById("orders");
@@ -1880,14 +1931,20 @@ function loadOrders() {
 function updateStatus(id, status) {
   fetch(BASE_URL + "/order/" + id, {
     method: "PUT",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": localStorage.getItem("token")
+    },
     body: JSON.stringify({ status })
   });
 }
 
 function hapus(id) {
   fetch(BASE_URL + "/order/" + id, {
-    method: "DELETE"
+    method: "DELETE",
+    headers: {
+      "Authorization": localStorage.getItem("token")
+    }
   });
 }
 
@@ -1905,7 +1962,7 @@ function login() {
   .then(res => res.json())
   .then(data => {
     if (data.success) {
-      localStorage.setItem("isLogin", "true");
+      localStorage.setItem("token", data.token); // 🔥 SIMPAN TOKEN
       window.location = "menu.html";
     } else {
       document.getElementById("msg").innerText = "Login gagal!";
@@ -1914,14 +1971,14 @@ function login() {
 }
 
 function logout() {
-  localStorage.removeItem("isLogin");
+  localStorage.removeItem("token");
   window.location = "login.html";
 }
 
 function cekLogin() {
-  const isLogin = localStorage.getItem("isLogin");
+  const token = localStorage.getItem("token");
 
-  if (!isLogin) {
+  if (!token) {
     alert("Harus login dulu!");
     window.location = "login.html";
     return;
@@ -1933,7 +1990,11 @@ function cekLogin() {
 /* ================= STATISTIK ================= */
 
 function loadStats() {
-  fetch(BASE_URL + "/orders")
+  fetch(BASE_URL + "/public-orders")
+  headers: {
+    "Authorization": localStorage.getItem("token") || ""
+  }
+})
     .then(res => res.json())
     .then(data => {
       let totalOrder = data.length;

@@ -10,7 +10,7 @@ function tambah(nama, harga) {
   renderKeranjang();
 }
 
-/* ================= RENDER KERANJANG ================= */
+/* ================= RENDER ================= */
 
 function renderKeranjang() {
   const list = document.getElementById("keranjang");
@@ -76,7 +76,7 @@ function lanjutOrder() {
 /* ================= KIRIM ORDER ================= */
 
 function kirimOrder(nama, alamat, pembayaran, total) {
-  fetch(BASE_URL + "/order", {
+  fetch(BASE_URL + "/order", {   // ✅ FIX ENDPOINT
     method: "POST",
     headers: {
       "Content-Type": "application/json"
@@ -99,9 +99,9 @@ function kirimOrder(nama, alamat, pembayaran, total) {
 
       alert("Nomor Antrian Kamu: A" + String(nomor).padStart(3, "0"));
 
-setTimeout(() => {
-  window.open("antrian.html", "_blank");
-}, 500);
+      setTimeout(() => {
+        window.open("antrian.html", "_blank");
+      }, 500);
 
       keranjang = [];
       renderKeranjang();
@@ -114,7 +114,7 @@ setTimeout(() => {
 
 function mulaiPantauStatus() {
   setInterval(() => {
-    fetch(BASE_URL + "/orders")
+    fetch(BASE_URL + "/public-orders") // ini public jadi ga perlu auth
       .then(res => res.json())
       .then(data => {
         const order = data.find(o => o.id == currentOrderId);
@@ -147,22 +147,36 @@ function initAdmin() {
 }
 
 function loadOrders() {
-  fetch(BASE_URL + "/orders")
-    .then(res => res.json())
+  fetch(BASE_URL + "/public-orders", {
+    headers: {
+      "Authorization": localStorage.getItem("token") || ""
+    }
+  })
+    .then(res => {
+      if (res.status === 401) {
+        logout();
+        return;
+      }
+      return res.json();
+    })
     .then(data => {
+      if (!data) return;
+
       const container = document.getElementById("orders");
       if (!container) return;
 
       container.innerHTML = "";
 
       data.forEach(o => {
+        const items = JSON.parse(o.items || "[]"); // ✅ FIX parse
+
         const div = document.createElement("div");
         div.className = "card";
 
         div.innerHTML = `
   <b>🧾 A${String(o.antrian).padStart(3,"0")}</b><br>
-  <b>${o.nama}</b><br>
-  ${o.items.map(i => i.nama).join(", ")}<br>
+  <b>${o.nama || "-"}</b><br>
+  ${items.map(i => i.nama).join(", ")}<br>
   Rp ${o.total}<br>
 
   <div class="status-btns">
@@ -183,14 +197,20 @@ function loadOrders() {
 function updateStatus(id, status) {
   fetch(BASE_URL + "/order/" + id, {
     method: "PUT",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": localStorage.getItem("token")
+    },
     body: JSON.stringify({ status })
   });
 }
 
 function hapus(id) {
   fetch(BASE_URL + "/order/" + id, {
-    method: "DELETE"
+    method: "DELETE",
+    headers: {
+      "Authorization": localStorage.getItem("token")
+    }
   });
 }
 
@@ -208,7 +228,7 @@ function login() {
   .then(res => res.json())
   .then(data => {
     if (data.success) {
-      localStorage.setItem("isLogin", "true");
+      localStorage.setItem("token", data.token);
       window.location = "menu.html";
     } else {
       document.getElementById("msg").innerText = "Login gagal!";
@@ -217,14 +237,14 @@ function login() {
 }
 
 function logout() {
-  localStorage.removeItem("isLogin");
+  localStorage.removeItem("token");
   window.location = "login.html";
 }
 
 function cekLogin() {
-  const isLogin = localStorage.getItem("isLogin");
+  const token = localStorage.getItem("token");
 
-  if (!isLogin) {
+  if (!token) {
     alert("Harus login dulu!");
     window.location = "login.html";
     return;
@@ -236,7 +256,7 @@ function cekLogin() {
 /* ================= STATISTIK ================= */
 
 function loadStats() {
-  fetch(BASE_URL + "/orders")
+  fetch(BASE_URL + "/public-orders")
     .then(res => res.json())
     .then(data => {
       let totalOrder = data.length;

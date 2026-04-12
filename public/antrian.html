@@ -162,9 +162,10 @@ function panggil(nomor, status) {
 
 /* ================= LOAD ================= */
 function loadAntrian() {
-  fetch(BASE_URL + "/orders?nocache=" + Date.now())
-    .then(res => res.json())
-    .then(data => {
+  fetch(BASE_URL + "/public-orders")
+  .then(res => res.json())
+  .then(data => {
+	
 	console.log("DATA ANTRIAN:", data);
 
       if (!data || data.length === 0) {
