@@ -1056,38 +1056,6 @@ menu.html
 </body>
 </html>
 
-admin.html
-
-<!DOCTYPE html>
-<html lang="id">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Admin</title>
-<link rel="stylesheet" href="style.css">
-</head>
-
-<body onload="cekLogin()">
-
-<div class="container">
-
-<button onclick="window.location='menu.html'" style="background:#64748b; margin-bottom:10px;">
-  ⬅️ Kembali ke Menu
-</button>
-
-<h2>📦 Admin Panel</h2>
-
-<button onclick="loadOrders()">🔄 Refresh</button>
-<button onclick="logout()" style="background:red;">Logout</button>
-
-<div id="orders"></div>
-
-</div>
-
-<script src="script.js"></script>
-</body>
-</html>
-
 antrian.html
 
 <!DOCTYPE html>
