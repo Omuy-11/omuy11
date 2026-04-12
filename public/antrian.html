@@ -94,7 +94,7 @@ body {
 
 <body>
 
-<button onclick="window.location='menu.html'" style="position:absolute; top:10px; left:10px; background:#64748b;">
+<button onclick="history.back()" style="position:absolute; top:10px; left:10px; background:#64748b;">
   ⬅️
 </button>
 
@@ -109,11 +109,13 @@ body {
 
 <script>
 
+speechSynthesis.cancel(); // 🔥 TARUH DI SINI
+
 let lastStatus = {};
 let firstLoad = true;
 
 /* ================= SUARA ================= */
-function panggil(nomor, status) {
+ffunction panggil(nomor, status) {
   let text = "";
 
   if (status === "menunggu") {
@@ -134,12 +136,25 @@ function panggil(nomor, status) {
 
   if (!text) return;
 
-  const suara = new SpeechSynthesisUtterance(text);
-  suara.lang = "id-ID";
-  suara.rate = 0.95;
+  // 🔥 pastikan suara ready
+  function speak() {
+    const suara = new SpeechSynthesisUtterance(text);
+    suara.lang = "id-ID";
+    suara.rate = 0.95;
+    suara.pitch = 1;
 
-  speechSynthesis.cancel();
-  speechSynthesis.speak(suara);
+    // 🔥 stop suara sebelumnya
+    speechSynthesis.cancel();
+
+    speechSynthesis.speak(suara);
+  }
+
+  // 🔥 retry kalau voice belum siap
+  if (speechSynthesis.getVoices().length === 0) {
+    speechSynthesis.onvoiceschanged = speak;
+  } else {
+    speak();
+  }
 }
 
 /* ================= LOAD ================= */
@@ -169,7 +184,7 @@ function loadAntrian() {
 
       /* ================= SUARA ================= */
 
-      if (!firstLoad && (!lastStatus[utama.id] || lastStatus[utama.id] !== statusUtama)) {
+      if (!firstLoad && lastStatus[utama.id] !== statusUtama) {
         panggil(nomorUtama, statusUtama);
       }
 
