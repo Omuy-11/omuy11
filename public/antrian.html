@@ -164,8 +164,13 @@ function loadAntrian() {
   fetch(BASE_URL + "/orders?nocache=" + Date.now())
     .then(res => res.json())
     .then(data => {
+	console.log("DATA ANTRIAN:", data);
 
-      if (data.length === 0) return;
+      if (!data || data.length === 0) {
+  document.getElementById("bigNumber").innerText = "A000";
+  document.getElementById("bigStatus").innerText = "Belum ada order";
+  return;
+}
 
       const maxId = Math.max(...data.map(o => o.id));
       const utama = data.find(o => o.id === maxId);

@@ -99,6 +99,12 @@ function kirimOrder(nama, alamat, pembayaran, total) {
 
       alert("Nomor Antrian Kamu: A" + String(nomor).padStart(3, "0"));
 
+window.open("antrian.html", "_blank"); // 🔥 auto buka antrian
+
+setTimeout(() => {
+  window.open("antrian.html", "_blank");
+}, 500);
+
       keranjang = [];
       renderKeranjang();
       mulaiPantauStatus();

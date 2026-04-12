@@ -14,10 +14,6 @@
 <h1 style="text-align:center;">🍜 Order Makanan</h1>
 <p style="text-align:center; color:#666;">Pilih menu favorit kamu</p>
 
-<button onclick="window.location='antrian.html'" style="background:#0ea5e9; margin-bottom:10px;">
-  📺 Cek Antrian Pesanan
-</button>
-
 <!-- MENU -->
 <div class="menu">
 
@@ -64,8 +60,10 @@
 <!-- BUTTON PESAN -->
 <div class="footer">
   <button onclick="checkout()">Pesan Sekarang</button>
-</div>
 
+  <button onclick="window.open('antrian.html', '_blank')" style="background:#0ea5e9; margin-top:10px;">
+    📺 Lihat Antrian
+  </button>
 </div>
 
 <!-- QRIS MODAL -->
