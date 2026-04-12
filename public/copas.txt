@@ -293,7 +293,7 @@ let lastStatus = {};
 let firstLoad = true;
 
 /* ================= SUARA ================= */
-ffunction panggil(nomor, status) {
+function panggil(nomor, status) {
   let text = "";
 
   if (status === "menunggu") {
@@ -1171,7 +1171,8 @@ body {
 
 <body>
 
-<button onclick="history.back()" style="position:absolute; top:10px; left:10px; background:#64748b;">
+<button onclick="window.location.href='index.html'" 
+style="position:absolute; top:10px; left:10px; background:#64748b;">
   ⬅️
 </button>
 
@@ -1194,7 +1195,7 @@ let lastStatus = {};
 let firstLoad = true;
 
 /* ================= SUARA ================= */
-ffunction panggil(nomor, status) {
+function panggil(nomor, status) {
   let text = "";
 
   if (status === "menunggu") {
@@ -1371,10 +1372,6 @@ index.html
 
 <div class="container">
 
-<button onclick="window.location='menu.html'" style="background:#64748b; margin-bottom:10px;">
-  ⬅️ Kembali ke Menu
-</button>
-
 <h1 style="text-align:center;">🍜 Order Makanan</h1>
 <p style="text-align:center; color:#666;">Pilih menu favorit kamu</p>
 
@@ -1424,8 +1421,10 @@ index.html
 <!-- BUTTON PESAN -->
 <div class="footer">
   <button onclick="checkout()">Pesan Sekarang</button>
-</div>
 
+  <button onclick="window.open('antrian.html', '_blank')" style="background:#0ea5e9; margin-top:10px;">
+    📺 Lihat Antrian
+  </button>
 </div>
 
 <!-- QRIS MODAL -->
@@ -1796,6 +1795,10 @@ function kirimOrder(nama, alamat, pembayaran, total) {
       let nomor = data.antrian || 0;
 
       alert("Nomor Antrian Kamu: A" + String(nomor).padStart(3, "0"));
+
+setTimeout(() => {
+  window.open("antrian.html", "_blank");
+}, 500);
 
       keranjang = [];
       renderKeranjang();

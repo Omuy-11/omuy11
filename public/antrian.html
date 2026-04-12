@@ -94,7 +94,8 @@ body {
 
 <body>
 
-<button onclick="history.back()" style="position:absolute; top:10px; left:10px; background:#64748b;">
+<button onclick="window.location.href='index.html'" 
+style="position:absolute; top:10px; left:10px; background:#64748b;">
   ⬅️
 </button>
 
@@ -117,7 +118,7 @@ let lastStatus = {};
 let firstLoad = true;
 
 /* ================= SUARA ================= */
-ffunction panggil(nomor, status) {
+function panggil(nomor, status) {
   let text = "";
 
   if (status === "menunggu") {
