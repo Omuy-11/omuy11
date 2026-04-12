@@ -109,6 +109,8 @@ body {
 
 <script>
 
+const BASE_URL = "https://omuy11-production.up.railway.app";
+
 speechSynthesis.cancel(); // 🔥 TARUH DI SINI
 
 let lastStatus = {};
@@ -159,7 +161,7 @@ ffunction panggil(nomor, status) {
 
 /* ================= LOAD ================= */
 function loadAntrian() {
-  fetch("/orders?nocache=" + Date.now())
+  fetch(BASE_URL + "/orders?nocache=" + Date.now())
     .then(res => res.json())
     .then(data => {
 
