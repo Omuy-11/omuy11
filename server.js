@@ -100,9 +100,15 @@ app.post("/order", (req, res) => {
 // 🔥 PROTECTED (HARUS LOGIN)
 app.get("/public-orders", (req, res) => {
   db.query("SELECT * FROM orders ORDER BY id DESC LIMIT 20", (err, results) => {
-    if (err) return res.status(500).json(err);
 
-    res.json(results);
+    if (err) {
+      console.log("PUBLIC ORDERS ERROR:", err);
+      return res.status(500).json({ error: "DB ERROR" });
+    }
+
+    console.log("DATA ORDERS:", results);
+
+    res.json(results || []);
   });
 });
 
