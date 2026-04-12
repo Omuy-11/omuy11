@@ -150,11 +150,7 @@ function initAdmin() {
 }
 
 function loadOrders() {
-  fetch(BASE_URL + "/public-orders", {
-    headers: {
-      "Authorization": localStorage.getItem("token") || ""
-    }
-  })
+  fetch(BASE_URL + "/public-orders")
     .then(res => {
       if (res.status === 401) {
         logout();
