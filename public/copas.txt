@@ -11,8 +11,6 @@ app.use(express.static("public"));
 
 /* ================= DATABASE ================= */
 
-/* ================= DATABASE ================= */
-
 const db = mysql.createPool(process.env.DATABASE_URL);
 
 db.getConnection((err, conn) => {
@@ -96,21 +94,22 @@ app.post("/order", (req, res) => {
   });
 });
 
-// 🔥 PROTECTED (HARUS LOGIN)
+// PUBLIC ORDERS (dipakai semua halaman)
 app.get("/public-orders", (req, res) => {
   db.query("SELECT * FROM orders ORDER BY id DESC LIMIT 20", (err, results) => {
 
     if (err) {
-      console.log("PUBLIC ORDERS ERROR:", err);
-      return res.status(500).json({ error: "DB ERROR" });
+      console.log("🔥 ERROR ASLI:", err);
+      return res.status(500).json({
+        error: err.message
+      });
     }
-
-    console.log("DATA ORDERS:", results);
 
     res.json(results || []);
   });
 });
 
+// UPDATE STATUS (ADMIN)
 app.put("/order/:id", auth, (req, res) => {
   const { status } = req.body;
 
@@ -124,6 +123,7 @@ app.put("/order/:id", auth, (req, res) => {
   );
 });
 
+// DELETE ORDER (ADMIN)
 app.delete("/order/:id", auth, (req, res) => {
   db.query(
     "DELETE FROM orders WHERE id=?",

@@ -92,7 +92,7 @@ app.post("/order", (req, res) => {
   });
 });
 
-// PUBLIC ORDERS (dipakai semua halaman)
+// PUBLIC ORDERS
 app.get("/public-orders", (req, res) => {
   db.query("SELECT * FROM orders ORDER BY id DESC LIMIT 20", (err, results) => {
 
