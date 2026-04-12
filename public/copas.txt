@@ -11,14 +11,18 @@ app.use(express.static("public"));
 
 /* ================= DATABASE ================= */
 
-const db = mysql.createPool({
-  uri: process.env.DATABASE_URL,
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0
-});
+/* ================= DATABASE ================= */
 
-console.log("✅ MySQL Pool Ready");
+const db = mysql.createPool(process.env.DATABASE_URL);
+
+db.getConnection((err, conn) => {
+  if (err) {
+    console.log("❌ DB ERROR:", err);
+  } else {
+    console.log("✅ MySQL Connected");
+    conn.release();
+  }
+});
 
 /* ================= LOGIN ================= */
 

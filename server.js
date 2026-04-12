@@ -9,14 +9,16 @@ app.use(express.static("public"));
 
 /* ================= DATABASE ================= */
 
-const db = mysql.createPool({
-  uri: process.env.DATABASE_URL,
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0
-});
+const db = mysql.createPool(process.env.DATABASE_URL);
 
-console.log("✅ MySQL Pool Ready");
+db.getConnection((err, conn) => {
+  if (err) {
+    console.log("❌ DB ERROR:", err);
+  } else {
+    console.log("✅ MySQL Connected");
+    conn.release();
+  }
+});
 
 /* ================= LOGIN ================= */
 
@@ -90,7 +92,7 @@ app.post("/order", (req, res) => {
   });
 });
 
-// 🔥 PROTECTED (HARUS LOGIN)
+// PUBLIC ORDERS (dipakai semua halaman)
 app.get("/public-orders", (req, res) => {
   db.query("SELECT * FROM orders ORDER BY id DESC LIMIT 20", (err, results) => {
 
@@ -101,10 +103,11 @@ app.get("/public-orders", (req, res) => {
       });
     }
 
-    res.json(results);
+    res.json(results || []);
   });
 });
 
+// UPDATE STATUS (ADMIN)
 app.put("/order/:id", auth, (req, res) => {
   const { status } = req.body;
 
@@ -118,6 +121,7 @@ app.put("/order/:id", auth, (req, res) => {
   );
 });
 
+// DELETE ORDER (ADMIN)
 app.delete("/order/:id", auth, (req, res) => {
   db.query(
     "DELETE FROM orders WHERE id=?",
