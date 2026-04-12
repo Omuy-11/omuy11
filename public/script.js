@@ -63,10 +63,13 @@ function lanjutOrder() {
   if (!cek) return alert("Konfirmasi dulu!");
 
   const nama = document.getElementById("nama").value;
-  const alamat = document.getElementById("alamat").value;
+  const alamatSelect = document.getElementById("alamat");
+  const alamat = alamatSelect.value;
+  const ongkir = alamatSelect.selectedOptions[0]?.dataset.ongkir || 0;
   const pembayaran = document.getElementById("pembayaran").value;
 
   let total = keranjang.reduce((sum, item) => sum + item.harga, 0);
+  total += parseInt(ongkir);
 
   kirimOrder(nama, alamat, pembayaran, total);
 
@@ -155,7 +158,7 @@ function loadOrders() {
     .then(res => {
       if (res.status === 401) {
         logout();
-        return;
+        return null;
       }
       return res.json();
     })
@@ -168,25 +171,30 @@ function loadOrders() {
       container.innerHTML = "";
 
       data.forEach(o => {
-        const items = JSON.parse(o.items || "[]"); // ✅ FIX parse
+        let items = [];
+        try {
+          items = JSON.parse(o.items || "[]");
+        } catch {
+          items = [];
+        }
 
         const div = document.createElement("div");
         div.className = "card";
 
         div.innerHTML = `
-  <b>🧾 A${String(o.antrian).padStart(3,"0")}</b><br>
-  <b>${o.nama || "-"}</b><br>
-  ${items.map(i => i.nama).join(", ")}<br>
-  Rp ${o.total}<br>
+          <b>🧾 A${String(o.antrian).padStart(3,"0")}</b><br>
+          <b>${o.nama || "-"}</b><br>
+          ${items.map(i => i.nama).join(", ")}<br>
+          Rp ${o.total}<br>
 
-  <div class="status-btns">
-    <button onclick="updateStatus(${o.id}, 'Menunggu')">Menunggu</button>
-    <button onclick="updateStatus(${o.id}, 'Diproses')">Diproses</button>
-    <button onclick="updateStatus(${o.id}, 'Diantar')">Diantar</button>
-    <button onclick="updateStatus(${o.id}, 'Selesai')">Selesai</button>
-  </div>
+          <div class="status-btns">
+            <button onclick="updateStatus(${o.id}, 'Menunggu')">Menunggu</button>
+            <button onclick="updateStatus(${o.id}, 'Diproses')">Diproses</button>
+            <button onclick="updateStatus(${o.id}, 'Diantar')">Diantar</button>
+            <button onclick="updateStatus(${o.id}, 'Selesai')">Selesai</button>
+          </div>
 
-  <button onclick="hapus(${o.id})" style="background:red;">Hapus</button>
+          <button onclick="hapus(${o.id})" style="background:red;">Hapus</button>
         `;
 
         container.appendChild(div);

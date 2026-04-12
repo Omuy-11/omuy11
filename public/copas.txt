@@ -71,7 +71,7 @@ app.post("/order", (req, res) => {
 
   db.query("SELECT MAX(antrian) as last FROM orders", (err, result) => {
 
-    if (err || !result) {
+    if (err) {
       return res.json({
         id: Date.now(),
         antrian: Math.floor(Math.random() * 900) + 100
@@ -108,7 +108,7 @@ app.post("/order", (req, res) => {
 
 // 🔥 PROTECTED (HARUS LOGIN)
 app.get("/public-orders", (req, res) => {
-  db.query("SELECT id, antrian, status FROM orders ORDER BY id DESC LIMIT 20", (err, results) => {
+  db.query("SELECT * FROM orders ORDER BY id DESC LIMIT 20", (err, results) => {
     if (err) return res.status(500).json(err);
 
     res.json(results);
@@ -347,12 +347,9 @@ function panggil(nomor, status) {
 /* ================= LOAD ================= */
 function loadAntrian() {
   fetch(BASE_URL + "/public-orders")
-  headers: {
-    "Authorization": localStorage.getItem("token") || ""
-  }
-})
     .then(res => res.json())
     .then(data => {
+	
 	console.log("DATA ANTRIAN:", data);
 
       if (!data || data.length === 0) {
@@ -467,6 +464,8 @@ cs.html
 
 </body>
 </html>
+
+index.html
 
 <!DOCTYPE html>
 <html lang="id">
@@ -871,10 +870,13 @@ function lanjutOrder() {
   if (!cek) return alert("Konfirmasi dulu!");
 
   const nama = document.getElementById("nama").value;
-  const alamat = document.getElementById("alamat").value;
+  const alamatSelect = document.getElementById("alamat");
+  const alamat = alamatSelect.value;
+  const ongkir = alamatSelect.selectedOptions[0]?.dataset.ongkir || 0;
   const pembayaran = document.getElementById("pembayaran").value;
 
   let total = keranjang.reduce((sum, item) => sum + item.harga, 0);
+  total += parseInt(ongkir);
 
   kirimOrder(nama, alamat, pembayaran, total);
 
@@ -963,7 +965,7 @@ function loadOrders() {
     .then(res => {
       if (res.status === 401) {
         logout();
-        return;
+        return null;
       }
       return res.json();
     })
@@ -976,25 +978,30 @@ function loadOrders() {
       container.innerHTML = "";
 
       data.forEach(o => {
-        const items = JSON.parse(o.items || "[]"); // ✅ FIX parse
+        let items = [];
+        try {
+          items = JSON.parse(o.items || "[]");
+        } catch {
+          items = [];
+        }
 
         const div = document.createElement("div");
         div.className = "card";
 
         div.innerHTML = `
-  <b>🧾 A${String(o.antrian).padStart(3,"0")}</b><br>
-  <b>${o.nama || "-"}</b><br>
-  ${items.map(i => i.nama).join(", ")}<br>
-  Rp ${o.total}<br>
+          <b>🧾 A${String(o.antrian).padStart(3,"0")}</b><br>
+          <b>${o.nama || "-"}</b><br>
+          ${items.map(i => i.nama).join(", ")}<br>
+          Rp ${o.total}<br>
 
-  <div class="status-btns">
-    <button onclick="updateStatus(${o.id}, 'Menunggu')">Menunggu</button>
-    <button onclick="updateStatus(${o.id}, 'Diproses')">Diproses</button>
-    <button onclick="updateStatus(${o.id}, 'Diantar')">Diantar</button>
-    <button onclick="updateStatus(${o.id}, 'Selesai')">Selesai</button>
-  </div>
+          <div class="status-btns">
+            <button onclick="updateStatus(${o.id}, 'Menunggu')">Menunggu</button>
+            <button onclick="updateStatus(${o.id}, 'Diproses')">Diproses</button>
+            <button onclick="updateStatus(${o.id}, 'Diantar')">Diantar</button>
+            <button onclick="updateStatus(${o.id}, 'Selesai')">Selesai</button>
+          </div>
 
-  <button onclick="hapus(${o.id})" style="background:red;">Hapus</button>
+          <button onclick="hapus(${o.id})" style="background:red;">Hapus</button>
         `;
 
         container.appendChild(div);
@@ -1115,291 +1122,6 @@ menu.html
 </body>
 </html>
 
-antrian.html
-
-<!DOCTYPE html>
-<html lang="id">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Layar Antrian</title>
-
-<style>
-body {
-  margin: 0;
-  font-family: sans-serif;
-  background: #020617;
-  color: white;
-  text-align: center;
-}
-
-.big {
-  font-size: 120px;
-  font-weight: bold;
-  margin-top: 40px;
-}
-
-.status-big {
-  font-size: 30px;
-  margin-top: 10px;
-}
-
-.container {
-  display: flex;
-  justify-content: center;
-  gap: 15px;
-  flex-wrap: wrap;
-  padding: 20px;
-}
-
-.card {
-  background: #1e293b;
-  padding: 15px;
-  border-radius: 15px;
-  width: 100px;
-  font-size: 20px;
-}
-
-/* ================= WARNA ================= */
-
-.menunggu {
-  color: #f59e0b;
-}
-
-.diproses {
-  color: #3b82f6;
-}
-
-.diantar {
-  color: #22c55e;
-}
-
-.selesai {
-  color: #94a3b8;
-}
-
-/* ================= ANIMASI ================= */
-
-.blink {
-  animation: blink 1s infinite alternate;
-}
-
-@keyframes blink {
-  from { opacity: 1; }
-  to { opacity: 0.5; }
-}
-
-.flash {
-  animation: zoom 0.4s ease;
-}
-
-@keyframes zoom {
-  0% { transform: scale(0.6); opacity: 0; }
-  100% { transform: scale(1); opacity: 1; }
-}
-
-.fade-out {
-  animation: fadeOut 1s forwards;
-}
-
-@keyframes fadeOut {
-  to {
-    opacity: 0;
-    transform: scale(0.8);
-  }
-}
-</style>
-</head>
-
-<body>
-
-<button onclick="window.location.href='index.html'" 
-style="position:absolute; top:10px; left:10px; background:#64748b;">
-  ⬅️
-</button>
-
-<h1>📺 ANTRIAN</h1>
-
-<div>
-  <div id="bigNumber" class="big">A000</div>
-  <div id="bigStatus" class="status-big"></div>
-</div>
-
-<div class="container" id="list"></div>
-
-<script>
-
-const BASE_URL = "https://omuy11-production.up.railway.app";
-
-speechSynthesis.cancel(); // 🔥 TARUH DI SINI
-
-let lastStatus = {};
-let firstLoad = true;
-
-/* ================= SUARA ================= */
-function panggil(nomor, status) {
-  let text = "";
-
-  if (status === "menunggu") {
-    text = `Order A${nomor} baru masuk ya, siap diproses`;
-  }
-
-  if (status === "diproses") {
-    text = `Order A${nomor} lagi kita siapin, mohon ditunggu`;
-  }
-
-  if (status === "diantar") {
-    text = `Order A${nomor} lagi di jalan, ditunggu ya`;
-  }
-
-  if (status === "selesai") {
-    text = `Order A${nomor} sudah selesai, terima kasih`;
-  }
-
-  if (!text) return;
-
-  // 🔥 pastikan suara ready
-  function speak() {
-    const suara = new SpeechSynthesisUtterance(text);
-    suara.lang = "id-ID";
-    suara.rate = 0.95;
-    suara.pitch = 1;
-
-    // 🔥 stop suara sebelumnya
-    speechSynthesis.cancel();
-
-    speechSynthesis.speak(suara);
-  }
-
-  // 🔥 retry kalau voice belum siap
-  if (speechSynthesis.getVoices().length === 0) {
-    speechSynthesis.onvoiceschanged = speak;
-  } else {
-    speak();
-  }
-}
-
-/* ================= LOAD ================= */
-function loadAntrian() {
-  fetch(BASE_URL + "/public-orders")
-  .then(res => res.json())
-  .then(data => {
-  
-	console.log("DATA ANTRIAN:", data);
-
-      if (!data || data.length === 0) {
-  document.getElementById("bigNumber").innerText = "A000";
-  document.getElementById("bigStatus").innerText = "Belum ada order";
-  return;
-}
-
-      const maxId = Math.max(...data.map(o => o.id));
-      const utama = data.find(o => o.id === maxId);
-
-      const nomorUtama = String(utama.antrian).padStart(3,"0");
-      const statusUtama = utama.status.toLowerCase().trim();
-
-      /* ================= NOMOR BESAR ================= */
-
-      const big = document.getElementById("bigNumber");
-      const statusEl = document.getElementById("bigStatus");
-
-      big.innerText = "A" + nomorUtama;
-      statusEl.innerText = utama.status;
-
-      big.classList.add("flash");
-      setTimeout(() => big.classList.remove("flash"), 400);
-
-      /* ================= SUARA ================= */
-
-      if (!firstLoad && lastStatus[utama.id] !== statusUtama) {
-        panggil(nomorUtama, statusUtama);
-      }
-
-      lastStatus[utama.id] = statusUtama;
-
-      /* ================= LIST ================= */
-
-      const list = document.getElementById("list");
-      list.innerHTML = "";
-
-      data.forEach(o => {
-        const nomor = String(o.antrian).padStart(3,"0");
-        const status = o.status.toLowerCase().trim();
-
-        const div = document.createElement("div");
-        div.className = "card";
-
-        let warna = "";
-
-        if (status === "menunggu") warna = "menunggu";
-        if (status === "diproses") warna = "diproses";
-        if (status === "diantar") warna = "diantar";
-        if (status === "selesai") warna = "selesai";
-
-        // blink khusus MENUNGGU terbaru
-        if (status === "menunggu" && o.id === maxId) {
-          div.classList.add("blink");
-        }
-
-        // fade out kalau selesai
-        if (status === "selesai") {
-          setTimeout(() => {
-            div.classList.add("fade-out");
-          }, 2000);
-        }
-
-        div.innerHTML = `
-          <div>A${nomor}</div>
-          <div class="${warna}">${o.status}</div>
-        `;
-
-        list.appendChild(div);
-      });
-
-      firstLoad = false;
-
-    });
-}
-
-/* ================= REALTIME ================= */
-setInterval(loadAntrian, 2000);
-loadAntrian();
-
-</script>
-
-</body>
-</html>
-
-cs.html
-
-<!DOCTYPE html>
-<html lang="id">
-<head>
-<meta charset="UTF-8">
-<title>CS</title>
-<link rel="stylesheet" href="style.css">
-</head>
-
-<body>
-
-<div class="container">
-
-<button onclick="window.location='menu.html'" style="background:#64748b; margin-bottom:10px;">
-  ⬅️ Kembali ke Menu
-</button>
-
-<h2>💬 Customer Service</h2>
-
-  <p>Nanti bisa isi chat / WhatsApp / dll</p>
-
-  <button onclick="window.location='menu.html'" style="background:#64748b; margin:10px;">
-  ⬅️ Kembali
-</button>
-
-</body>
-</html>
-
 index.html
 
 <!DOCTYPE html>
@@ -1486,537 +1208,6 @@ index.html
 <script src="script.js"></script>
 </body>
 </html>
-
-login.html
-
-<!DOCTYPE html>
-<html lang="id">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Login</title>
-<link rel="stylesheet" href="style.css">
-</head>
-<body>
-
-<div class="container">
-<h2>🔐 Login Admin</h2>
-
-<input id="user" placeholder="Username">
-<input id="pass" type="password" placeholder="Password">
-
-<button onclick="login()">Login</button>
-<p id="msg" style="color:red;"></p>
-</div>
-
-<script src="script.js"></script>
-</body>
-</html>
-
-statistik.html
-
-<!DOCTYPE html>
-<html lang="id">
-<head>
-<meta charset="UTF-8">
-<title>Statistik</title>
-<link rel="stylesheet" href="style.css">
-</head>
-
-<body onload="loadStats()">
-
-<div class="container">
-
-<button onclick="window.location='menu.html'" style="background:#64748b; margin-bottom:10px;">
-  ⬅️ Kembali ke Menu
-</button>
-
-<h2>📊 Statistik Harian</h2>
-
-  <div id="stats" class="card">Loading...</div>
-
-  <br>
-  <button onclick="window.location='menu.html'" style="background:#64748b; margin:10px;">
-  ⬅️ Kembali
-</button>
-</div>
-
-<script src="script.js"></script>
-</body>
-</html>
-
-style.css
-
-/* ================= GLOBAL ================= */
-
-body {
-  font-family: 'Segoe UI', sans-serif;
-  background: #f8fafc;
-  margin: 0;
-  padding: 0;
-}
-
-/* ================= CONTAINER ================= */
-
-.container {
-  max-width: 500px;
-  margin: auto;
-  padding: 20px;
-}
-
-/* ================= CARD ================= */
-
-.card {
-  background: white;
-  border-radius: 18px;
-  padding: 15px;
-  margin-bottom: 15px;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.05);
-  transition: 0.2s;
-}
-
-.card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 15px 30px rgba(0,0,0,0.08);
-}
-
-.card img {
-  width: 100%;
-  height: 120px;
-  object-fit: cover;
-  border-radius: 12px;
-}
-
-.card h3 {
-  margin: 8px 0 4px;
-}
-
-.card p {
-  margin: 0;
-  color: #666;
-}
-
-/* ================= BUTTON ================= */
-
-button {
-  border: none;
-  border-radius: 12px;
-  padding: 10px;
-  cursor: pointer;
-  font-weight: bold;
-  transition: 0.2s;
-  width: 100%;
-  background: #22c55e;
-  color: white;
-}
-
-button:hover {
-  opacity: 0.9;
-}
-
-button:active {
-  transform: scale(0.96);
-}
-
-/* ================= STATUS ================= */
-
-.status {
-  margin-top: 10px;
-  padding: 8px;
-  border-radius: 10px;
-  font-size: 12px;
-  font-weight: bold;
-  text-align: center;
-}
-
-.menunggu { background: #fef3c7; color: #92400e; }
-.diproses { background: #dbeafe; color: #1e40af; }
-.diantar { background: #ede9fe; color: #5b21b6; }
-.selesai { background: #dcfce7; color: #166534; }
-
-/* ================= ADMIN BUTTON ================= */
-
-.status-btns {
-  display: flex;
-  gap: 5px;
-  margin-top: 10px;
-}
-
-.status-btns button {
-  flex: 1;
-  padding: 6px;
-  font-size: 11px;
-  border-radius: 8px;
-  color: white;
-}
-
-.btn-menunggu { background: #f59e0b; }
-.btn-diproses { background: #3b82f6; }
-.btn-diantar { background: #8b5cf6; }
-.btn-selesai { background: #22c55e; }
-
-.active-status {
-  outline: 2px solid black;
-}
-
-/* ================= INPUT ================= */
-
-input, select {
-  width: 100%;
-  padding: 10px;
-  border-radius: 10px;
-  border: 1px solid #e5e7eb;
-  margin-top: 8px;
-}
-
-/* ================= QRIS BOX ================= */
-
-#qrisBox {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0,0,0,0.5);
-  display: none;
-  align-items: center;
-  justify-content: center;
-}
-
-#qrisBox .content {
-  background: white;
-  padding: 20px;
-  border-radius: 15px;
-  text-align: center;
-}
-
-.menu {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
-
-#keranjang li {
-  list-style: none;
-  padding: 10px;
-  margin-top: 5px;
-  background: #f1f5f9;
-  border-radius: 10px;
-}
-
-h2 {
-  margin-top: 20px;
-}
-
-.total {
-  margin-top: 10px;
-  font-size: 16px;
-}
-
-.footer {
-  margin-top: 20px;
-}
-
-.footer button {
-  font-size: 16px;
-  padding: 12px;
-  border-radius: 14px;
-}
-
-.menu-admin {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  margin-top: 20px;
-}
-
-.menu-admin button {
-  padding: 15px;
-  font-size: 14px;
-  border-radius: 14px;
-}
-
-script.js
-
-let keranjang = [];
-let currentOrderId = null;
-
-const BASE_URL = "https://omuy11-production.up.railway.app";
-
-/* ================= TAMBAH ITEM ================= */
-
-function tambah(nama, harga) {
-  keranjang.push({ nama, harga });
-  renderKeranjang();
-}
-
-/* ================= RENDER KERANJANG ================= */
-
-function renderKeranjang() {
-  const list = document.getElementById("keranjang");
-  const totalEl = document.getElementById("total");
-
-  if (!list || !totalEl) return;
-
-  list.innerHTML = "";
-
-  let total = 0;
-
-  keranjang.forEach((item) => {
-    total += item.harga;
-
-    const li = document.createElement("li");
-    li.innerHTML = `${item.nama} - Rp ${item.harga}`;
-    list.appendChild(li);
-  });
-
-  totalEl.innerText = "Rp " + total;
-}
-
-/* ================= CHECKOUT ================= */
-
-function checkout() {
-  const nama = document.getElementById("nama").value;
-  const alamatSelect = document.getElementById("alamat");
-  const alamat = alamatSelect.value;
-  const ongkir = alamatSelect.selectedOptions[0]?.dataset.ongkir || 0;
-  const pembayaran = document.getElementById("pembayaran").value;
-
-  if (!nama || !alamat || !pembayaran || keranjang.length === 0) {
-    alert("Lengkapi data dulu!");
-    return;
-  }
-
-  let total = keranjang.reduce((sum, item) => sum + item.harga, 0);
-  total += parseInt(ongkir);
-
-  if (pembayaran === "QRIS") {
-    document.getElementById("qrisBox").style.display = "flex";
-    document.getElementById("totalBayar").innerText = "Total: Rp " + total;
-  } else {
-    kirimOrder(nama, alamat, pembayaran, total);
-  }
-}
-
-function lanjutOrder() {
-  const cek = document.getElementById("konfirmasi").checked;
-  if (!cek) return alert("Konfirmasi dulu!");
-
-  const nama = document.getElementById("nama").value;
-  const alamat = document.getElementById("alamat").value;
-  const pembayaran = document.getElementById("pembayaran").value;
-
-  let total = keranjang.reduce((sum, item) => sum + item.harga, 0);
-
-  kirimOrder(nama, alamat, pembayaran, total);
-
-  document.getElementById("qrisBox").style.display = "none";
-}
-
-/* ================= KIRIM ORDER ================= */
-
-function kirimOrder(nama, alamat, pembayaran, total) {
-  fetch(BASE_URL + "/public-orders")
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      nama,
-      items: keranjang,
-      total,
-      alamat,
-      pembayaran
-    })
-  })
-    .then(res => res.json())
-    .then(data => {
-      console.log("ORDER MASUK:", data);
-
-      currentOrderId = data.id;
-
-      let nomor = data.antrian || 0;
-
-      alert("Nomor Antrian Kamu: A" + String(nomor).padStart(3, "0"));
-
-setTimeout(() => {
-  window.open("antrian.html", "_blank");
-}, 500);
-
-      keranjang = [];
-      renderKeranjang();
-      mulaiPantauStatus();
-    })
-    .catch(err => console.error("ERROR:", err));
-}
-
-/* ================= STATUS ================= */
-
-function mulaiPantauStatus() {
-  setInterval(() => {
-    fetch(BASE_URL + "/public-orders")
-  headers: {
-    "Authorization": localStorage.getItem("token") || ""
-  }
-})
-      .then(res => res.json())
-      .then(data => {
-        const order = data.find(o => o.id == currentOrderId);
-        if (!order) return;
-
-        tampilkanStatus(order.status);
-      });
-  }, 2000);
-}
-
-function tampilkanStatus(status) {
-  const box = document.getElementById("statusBox");
-  if (!box) return;
-
-  let className = "";
-
-  if (status === "Menunggu") className = "menunggu";
-  if (status === "Diproses") className = "diproses";
-  if (status === "Diantar") className = "diantar";
-  if (status === "Selesai") className = "selesai";
-
-  box.innerHTML = `<div class="status ${className}">${status}</div>`;
-}
-
-/* ================= ADMIN ================= */
-
-function initAdmin() {
-  loadOrders();
-  setInterval(loadOrders, 2000);
-}
-
-function loadOrders() {
-  fetch(BASE_URL + "/public-orders")
-  headers: {
-    "Authorization": localStorage.getItem("token") || ""
-  }
-})
-    .then(res => res.json())
-    .then(data => {
-      const container = document.getElementById("orders");
-      if (!container) return;
-
-      container.innerHTML = "";
-
-      data.forEach(o => {
-        const div = document.createElement("div");
-        div.className = "card";
-
-        div.innerHTML = `
-  <b>🧾 A${String(o.antrian).padStart(3,"0")}</b><br>
-  <b>${o.nama}</b><br>
-  ${o.items.map(i => i.nama).join(", ")}<br>
-  Rp ${o.total}<br>
-
-  <div class="status-btns">
-    <button onclick="updateStatus(${o.id}, 'Menunggu')">Menunggu</button>
-    <button onclick="updateStatus(${o.id}, 'Diproses')">Diproses</button>
-    <button onclick="updateStatus(${o.id}, 'Diantar')">Diantar</button>
-    <button onclick="updateStatus(${o.id}, 'Selesai')">Selesai</button>
-  </div>
-
-  <button onclick="hapus(${o.id})" style="background:red;">Hapus</button>
-        `;
-
-        container.appendChild(div);
-      });
-    });
-}
-
-function updateStatus(id, status) {
-  fetch(BASE_URL + "/order/" + id, {
-    method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": localStorage.getItem("token")
-    },
-    body: JSON.stringify({ status })
-  });
-}
-
-function hapus(id) {
-  fetch(BASE_URL + "/order/" + id, {
-    method: "DELETE",
-    headers: {
-      "Authorization": localStorage.getItem("token")
-    }
-  });
-}
-
-/* ================= LOGIN ================= */
-
-function login() {
-  const user = document.getElementById("user").value;
-  const pass = document.getElementById("pass").value;
-
-  fetch(BASE_URL + "/login", {
-    method: "POST",
-    headers: {"Content-Type":"application/json"},
-    body: JSON.stringify({ user, pass })
-  })
-  .then(res => res.json())
-  .then(data => {
-    if (data.success) {
-      localStorage.setItem("token", data.token); // 🔥 SIMPAN TOKEN
-      window.location = "menu.html";
-    } else {
-      document.getElementById("msg").innerText = "Login gagal!";
-    }
-  });
-}
-
-function logout() {
-  localStorage.removeItem("token");
-  window.location = "login.html";
-}
-
-function cekLogin() {
-  const token = localStorage.getItem("token");
-
-  if (!token) {
-    alert("Harus login dulu!");
-    window.location = "login.html";
-    return;
-  }
-
-  initAdmin();
-}
-
-/* ================= STATISTIK ================= */
-
-function loadStats() {
-  fetch(BASE_URL + "/public-orders")
-  headers: {
-    "Authorization": localStorage.getItem("token") || ""
-  }
-})
-    .then(res => res.json())
-    .then(data => {
-      let totalOrder = data.length;
-      let totalUang = data.reduce((sum, o) => sum + o.total, 0);
-
-      let selesai = data.filter(o => o.status === "Selesai").length;
-      let proses = data.filter(o => o.status === "Diproses").length;
-      let menunggu = data.filter(o => o.status === "Menunggu").length;
-
-      const el = document.getElementById("stats");
-      if (!el) return;
-
-      el.innerHTML = `
-        <b>Total Order:</b> ${totalOrder}<br>
-        <b>Total Pendapatan:</b> Rp ${totalUang}<br><br>
-
-        🟡 Menunggu: ${menunggu}<br>
-        🔵 Diproses: ${proses}<br>
-        🟢 Selesai: ${selesai}
-      `;
-    });
-}
 
 package.json
 

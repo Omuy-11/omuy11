@@ -69,7 +69,7 @@ app.post("/order", (req, res) => {
 
   db.query("SELECT MAX(antrian) as last FROM orders", (err, result) => {
 
-    if (err || !result) {
+    if (err) {
       return res.json({
         id: Date.now(),
         antrian: Math.floor(Math.random() * 900) + 100
@@ -106,7 +106,7 @@ app.post("/order", (req, res) => {
 
 // 🔥 PROTECTED (HARUS LOGIN)
 app.get("/public-orders", (req, res) => {
-  db.query("SELECT id, antrian, status FROM orders ORDER BY id DESC LIMIT 20", (err, results) => {
+  db.query("SELECT * FROM orders ORDER BY id DESC LIMIT 20", (err, results) => {
     if (err) return res.status(500).json(err);
 
     res.json(results);
