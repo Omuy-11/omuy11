@@ -79,7 +79,7 @@ function lanjutOrder() {
 /* ================= KIRIM ORDER ================= */
 
 function kirimOrder(nama, alamat, pembayaran, total) {
-  fetch(BASE_URL + "/order", {   // ✅ FIX ENDPOINT
+  fetch(BASE_URL + "/order", {
     method: "POST",
     headers: {
       "Content-Type": "application/json"
@@ -117,7 +117,7 @@ function kirimOrder(nama, alamat, pembayaran, total) {
 
 function mulaiPantauStatus() {
   setInterval(() => {
-    fetch(BASE_URL + "/public-orders") // ini public jadi ga perlu auth
+    fetch(BASE_URL + "/public-orders")
       .then(res => res.json())
       .then(data => {
         const order = data.find(o => o.id == currentOrderId);
@@ -199,21 +199,47 @@ function loadOrders() {
 }
 
 function updateStatus(id, status) {
+  const token = localStorage.getItem("token");
+
+  if (!token) {
+    alert("Harus login dulu!");
+    window.location = "login.html";
+    return;
+  }
+
   fetch(BASE_URL + "/order/" + id, {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
-      "Authorization": localStorage.getItem("token")
+      "Authorization": token
     },
     body: JSON.stringify({ status })
+  })
+  .then(res => {
+    if (res.status === 401) {
+      logout();
+    }
   });
 }
 
 function hapus(id) {
+  const token = localStorage.getItem("token");
+
+  if (!token) {
+    alert("Harus login dulu!");
+    window.location = "login.html";
+    return;
+  }
+
   fetch(BASE_URL + "/order/" + id, {
     method: "DELETE",
     headers: {
-      "Authorization": localStorage.getItem("token")
+      "Authorization": token
+    }
+  })
+  .then(res => {
+    if (res.status === 401) {
+      logout();
     }
   });
 }
