@@ -70,17 +70,11 @@ app.post("/order", (req, res) => {
   db.query("SELECT MAX(antrian) as last FROM orders", (err, result) => {
 
     if (err) {
-      return res.json({
-        id: Date.now(),
-        antrian: Math.floor(Math.random() * 900) + 100
-      });
+      console.log("ERROR SELECT:", err);
+      return res.status(500).json({ error: "DB error (select)" });
     }
 
-    let last = 0;
-    if (result[0] && result[0].last != null) {
-      last = result[0].last;
-    }
-
+    let last = result[0]?.last || 0;
     let nextAntrian = parseInt(last) + 1;
 
     db.query(
@@ -89,10 +83,8 @@ app.post("/order", (req, res) => {
       (err2, result2) => {
 
         if (err2) {
-          return res.json({
-            id: Date.now(),
-            antrian: nextAntrian
-          });
+          console.log("ERROR INSERT:", err2);
+          return res.status(500).json({ error: "DB error (insert)" });
         }
 
         res.json({
