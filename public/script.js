@@ -16,6 +16,8 @@ function renderKeranjang() {
   const list = document.getElementById("keranjang");
   const totalEl = document.getElementById("total");
 
+  if (!list || !totalEl) return;
+
   list.innerHTML = "";
 
   let total = 0;
@@ -89,7 +91,7 @@ function kirimOrder(nama, alamat, pembayaran, total) {
   })
     .then(res => res.json())
     .then(data => {
-      console.log("DATA ORDER:", data);
+      console.log("ORDER MASUK:", data);
 
       currentOrderId = data.id;
 
@@ -121,6 +123,7 @@ function mulaiPantauStatus() {
 
 function tampilkanStatus(status) {
   const box = document.getElementById("statusBox");
+  if (!box) return;
 
   let className = "";
 
@@ -239,7 +242,10 @@ function loadStats() {
       let proses = data.filter(o => o.status === "Diproses").length;
       let menunggu = data.filter(o => o.status === "Menunggu").length;
 
-      document.getElementById("stats").innerHTML = `
+      const el = document.getElementById("stats");
+      if (!el) return;
+
+      el.innerHTML = `
         <b>Total Order:</b> ${totalOrder}<br>
         <b>Total Pendapatan:</b> Rp ${totalUang}<br><br>
 

@@ -778,7 +778,7 @@ script.js
 let keranjang = [];
 let currentOrderId = null;
 
-const BASE_URL = "https://omuy11-production.up.railway.app";
+BASE_URL = "https://omuy11-production.up.railway.app"
 
 /* ================= TAMBAH ITEM ================= */
 
@@ -1660,6 +1660,8 @@ script.js
 let keranjang = [];
 let currentOrderId = null;
 
+const BASE_URL = "https://omuy11-production.up.railway.app";
+
 /* ================= TAMBAH ITEM ================= */
 
 function tambah(nama, harga) {
@@ -1673,11 +1675,13 @@ function renderKeranjang() {
   const list = document.getElementById("keranjang");
   const totalEl = document.getElementById("total");
 
+  if (!list || !totalEl) return;
+
   list.innerHTML = "";
 
   let total = 0;
 
-  keranjang.forEach((item, i) => {
+  keranjang.forEach((item) => {
     total += item.harga;
 
     const li = document.createElement("li");
@@ -1731,7 +1735,7 @@ function lanjutOrder() {
 /* ================= KIRIM ORDER ================= */
 
 function kirimOrder(nama, alamat, pembayaran, total) {
-  fetch("/order", {
+  fetch(BASE_URL + "/order", {
     method: "POST",
     headers: {
       "Content-Type": "application/json"
@@ -1744,21 +1748,28 @@ function kirimOrder(nama, alamat, pembayaran, total) {
       pembayaran
     })
   })
-  .then(res => res.json()) // 🔥 INI YANG KURANG
-  .then(data => {
-    currentOrderId = data.id;
+    .then(res => res.json())
+    .then(data => {
+      console.log("ORDER MASUK:", data);
 
-    alert("Nomor Antrian Kamu: A" + String(data.antrian).padStart(3, "0"));
+      currentOrderId = data.id;
 
-    keranjang = [];
-    renderKeranjang();
-    mulaiPantauStatus();
-  });
+      let nomor = data.antrian || 0;
+
+      alert("Nomor Antrian Kamu: A" + String(nomor).padStart(3, "0"));
+
+      keranjang = [];
+      renderKeranjang();
+      mulaiPantauStatus();
+    })
+    .catch(err => console.error("ERROR:", err));
 }
+
+/* ================= STATUS ================= */
 
 function mulaiPantauStatus() {
   setInterval(() => {
-    fetch("/orders")
+    fetch(BASE_URL + "/orders")
       .then(res => res.json())
       .then(data => {
         const order = data.find(o => o.id == currentOrderId);
@@ -1771,6 +1782,7 @@ function mulaiPantauStatus() {
 
 function tampilkanStatus(status) {
   const box = document.getElementById("statusBox");
+  if (!box) return;
 
   let className = "";
 
@@ -1786,14 +1798,16 @@ function tampilkanStatus(status) {
 
 function initAdmin() {
   loadOrders();
-  setInterval(loadOrders, 2000); // realtime admin
+  setInterval(loadOrders, 2000);
 }
 
 function loadOrders() {
-  fetch("/orders")
+  fetch(BASE_URL + "/orders")
     .then(res => res.json())
     .then(data => {
       const container = document.getElementById("orders");
+      if (!container) return;
+
       container.innerHTML = "";
 
       data.forEach(o => {
@@ -1806,21 +1820,14 @@ function loadOrders() {
   ${o.items.map(i => i.nama).join(", ")}<br>
   Rp ${o.total}<br>
 
-         <div class="status-btns">
-  <button class="btn-menunggu ${o.status=="Menunggu"?"active-status":""}"
-    onclick="updateStatus(${o.id}, 'Menunggu')">Menunggu</button>
+  <div class="status-btns">
+    <button onclick="updateStatus(${o.id}, 'Menunggu')">Menunggu</button>
+    <button onclick="updateStatus(${o.id}, 'Diproses')">Diproses</button>
+    <button onclick="updateStatus(${o.id}, 'Diantar')">Diantar</button>
+    <button onclick="updateStatus(${o.id}, 'Selesai')">Selesai</button>
+  </div>
 
-  <button class="btn-diproses ${o.status=="Diproses"?"active-status":""}"
-    onclick="updateStatus(${o.id}, 'Diproses')">Diproses</button>
-
-  <button class="btn-diantar ${o.status=="Diantar"?"active-status":""}"
-    onclick="updateStatus(${o.id}, 'Diantar')">Diantar</button>
-
-  <button class="btn-selesai ${o.status=="Selesai"?"active-status":""}"
-    onclick="updateStatus(${o.id}, 'Selesai')">Selesai</button>
-</div>
-
-          <button onclick="hapus(${o.id})" style="background:red;">Hapus</button>
+  <button onclick="hapus(${o.id})" style="background:red;">Hapus</button>
         `;
 
         container.appendChild(div);
@@ -1829,7 +1836,7 @@ function loadOrders() {
 }
 
 function updateStatus(id, status) {
-  fetch("/order/" + id, {
+  fetch(BASE_URL + "/order/" + id, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ status })
@@ -1837,7 +1844,7 @@ function updateStatus(id, status) {
 }
 
 function hapus(id) {
-  fetch("/order/" + id, {
+  fetch(BASE_URL + "/order/" + id, {
     method: "DELETE"
   });
 }
@@ -1848,7 +1855,7 @@ function login() {
   const user = document.getElementById("user").value;
   const pass = document.getElementById("pass").value;
 
-  fetch("/login", {
+  fetch(BASE_URL + "/login", {
     method: "POST",
     headers: {"Content-Type":"application/json"},
     body: JSON.stringify({ user, pass })
@@ -1856,9 +1863,9 @@ function login() {
   .then(res => res.json())
   .then(data => {
     if (data.success) {
-  localStorage.setItem("isLogin", "true");
-  window.location = "menu.html"; // 🔥 masuk dashboard
-} else {
+      localStorage.setItem("isLogin", "true");
+      window.location = "menu.html";
+    } else {
       document.getElementById("msg").innerText = "Login gagal!";
     }
   });
@@ -1877,12 +1884,16 @@ function cekLogin() {
     window.location = "login.html";
     return;
   }
-  
-  function loadStats() {
-  fetch("/orders")
+
+  initAdmin();
+}
+
+/* ================= STATISTIK ================= */
+
+function loadStats() {
+  fetch(BASE_URL + "/orders")
     .then(res => res.json())
     .then(data => {
-
       let totalOrder = data.length;
       let totalUang = data.reduce((sum, o) => sum + o.total, 0);
 
@@ -1890,7 +1901,10 @@ function cekLogin() {
       let proses = data.filter(o => o.status === "Diproses").length;
       let menunggu = data.filter(o => o.status === "Menunggu").length;
 
-      document.getElementById("stats").innerHTML = `
+      const el = document.getElementById("stats");
+      if (!el) return;
+
+      el.innerHTML = `
         <b>Total Order:</b> ${totalOrder}<br>
         <b>Total Pendapatan:</b> Rp ${totalUang}<br><br>
 
@@ -1899,9 +1913,6 @@ function cekLogin() {
         🟢 Selesai: ${selesai}
       `;
     });
-}
-
-  initAdmin();
 }
 
 package.json
