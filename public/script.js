@@ -332,3 +332,25 @@ function loadStats() {
       `;
     });
 }
+
+document.addEventListener("DOMContentLoaded", () => {
+  const alamatSelect = document.getElementById("alamat");
+  const box = document.getElementById("alamatLengkapBox");
+
+  if (!alamatSelect || !box) return;
+
+  function toggleAlamat() {
+    const val = alamatSelect.value;
+
+    if (val === "Pacet" || val === "Majalaya") {
+      box.style.display = "block";
+    } else {
+      box.style.display = "none";
+    }
+  }
+
+  alamatSelect.addEventListener("change", toggleAlamat);
+
+  // 🔥 penting: biar gak bug saat reload
+  toggleAlamat();
+});
