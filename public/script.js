@@ -3,7 +3,6 @@ let currentOrderId = null;
 
 const BASE_URL = "https://omuy11-production.up.railway.app";
 
-/* ================= ALAMAT TOGGLE ================= */
   /* ================= ALAMAT TOGGLE ================= */
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -106,7 +105,7 @@ function lanjutOrder() {
 
   const alamatLengkap = document.getElementById("alamatLengkap")?.value || "";
 
-  const ongkir = alamatSelect.selectedOptions[0]?.dataset.ongkir || 0;
+  const ongkir = parseInt(alamatSelect.selectedOptions[0]?.dataset.ongkir || 0);
 
   let total = keranjang.reduce((sum, item) => sum + item.harga, 0);
   total += parseInt(ongkir);
@@ -164,8 +163,12 @@ function kirimOrder(nama, alamat, alamatLengkap, pembayaran, total) {
 
 /* ================= STATUS ================= */
 
+let intervalStatus = null;
+
 function mulaiPantauStatus() {
-  setInterval(() => {
+  if (intervalStatus) clearInterval(intervalStatus);
+
+  intervalStatus = setInterval(() => {
     fetch(BASE_URL + "/public-orders")
       .then(res => res.json())
       .then(data => {
