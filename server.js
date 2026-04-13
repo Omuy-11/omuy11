@@ -9,7 +9,12 @@ app.use(express.static("public"));
 
 /* ================= DATABASE ================= */
 
-const db = mysql.createPool(process.env.DATABASE_URL);
+const db = mysql.createPool({
+  uri: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false
+  }
+});
 
 db.getConnection((err, conn) => {
   if (err) {

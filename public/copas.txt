@@ -11,7 +11,12 @@ app.use(express.static("public"));
 
 /* ================= DATABASE ================= */
 
-const db = mysql.createPool(process.env.DATABASE_URL);
+const db = mysql.createPool({
+  uri: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false
+  }
+});
 
 db.getConnection((err, conn) => {
   if (err) {
@@ -57,6 +62,11 @@ function auth(req, res, next) {
   }
 
   next();
+}
+
+if (err2) {
+  console.log("❌ ERROR INSERT FULL:", err2);
+  return res.status(500).json({ error: err2.message });
 }
 
 /* ================= ORDER ================= */

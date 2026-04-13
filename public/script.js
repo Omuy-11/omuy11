@@ -194,6 +194,11 @@ function tampilkanStatus(status) {
   box.innerHTML = `<div class="status ${className}">${status}</div>`;
 }
 
+if (err2) {
+  console.log("❌ ERROR INSERT FULL:", err2);
+  return res.status(500).json({ error: err2.message });
+}
+
 /* ================= ADMIN ================= */
 
 function initAdmin() {
