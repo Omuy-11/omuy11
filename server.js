@@ -79,17 +79,17 @@ app.post("/order", (req, res) => {
     let nextAntrian = parseInt(last) + 1;
 
     db.query(
-      "INSERT INTO orders (nama, items, total, alamat, alamat_lengkap, pembayaran, antrian, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-      [
-        nama,
-        JSON.stringify(items),
-        total,
-        alamat,
-        alamatLengkap,
-        pembayaran,
-        nextAntrian,
-        "Menunggu"
-      ],
+  "INSERT INTO orders (nama, items, total, alamat, alamat_lengkap, pembayaran, antrian, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+  [
+    nama,
+    JSON.stringify(items),
+    total,
+    alamat,
+    alamatLengkap,
+    pembayaran,
+    nextAntrian,
+    "Menunggu"
+  ],
       (err2, result2) => {
 
         if (err2) {

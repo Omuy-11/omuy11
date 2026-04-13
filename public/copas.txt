@@ -64,11 +64,6 @@ function auth(req, res, next) {
   next();
 }
 
-if (err2) {
-  console.log("❌ ERROR INSERT FULL:", err2);
-  return res.status(500).json({ error: err2.message });
-}
-
 /* ================= ORDER ================= */
 
 // CREATE ORDER (PUBLIC)
