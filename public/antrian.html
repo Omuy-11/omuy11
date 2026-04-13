@@ -244,6 +244,17 @@ function goBack() {
   }
 }
 
+const params = new URLSearchParams(window.location.search);
+const from = params.get("from");
+
+function goBack() {
+  if (from === "admin") {
+    window.location.href = "menu.html";
+  } else {
+    window.location.href = "index.html";
+  }
+}
+
 </script>
 
 </body>
