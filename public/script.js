@@ -63,10 +63,17 @@ if ((alamat === "Pacet" || alamat === "Majalaya") && !alamatLengkap) {
   const ongkir = alamatSelect.selectedOptions[0]?.dataset.ongkir || 0;
   const pembayaran = document.getElementById("pembayaran").value;
 
-  if (!nama || !alamat || !pembayaran || keranjang.length === 0) {
-    alert("Lengkapi data dulu!");
-    return;
-  }
+  const alamatLengkap = document.getElementById("alamatLengkap")?.value;
+
+if (!nama || !alamat || !pembayaran || keranjang.length === 0) {
+  alert("Lengkapi data dulu!");
+  return;
+}
+
+if ((alamat === "Pacet" || alamat === "Majalaya") && !alamatLengkap) {
+  alert("Alamat lengkap wajib diisi!");
+  return;
+}
 
   let total = keranjang.reduce((sum, item) => sum + item.harga, 0);
   total += parseInt(ongkir);
@@ -351,6 +358,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   alamatSelect.addEventListener("change", toggleAlamat);
 
-  // 🔥 penting: biar gak bug saat reload
+  // 🔥 ini penting banget
   toggleAlamat();
 });

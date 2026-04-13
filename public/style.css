@@ -187,8 +187,19 @@ h2 {
   border-radius: 14px;
 }
 
+/* ================= ALAMAT LENGKAP ================= */
+
+#alamatLengkapBox {
+  margin-top: 10px;
+}
+
+#alamatLengkap {
+  min-height: 80px;
+  resize: vertical;
+  font-size: 14px;
+}
+
 .alamat-box {
-  display: none;
   margin-top: 10px;
   animation: fadeIn 0.3s ease;
 }

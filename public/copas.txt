@@ -796,8 +796,19 @@ h2 {
   border-radius: 14px;
 }
 
+/* ================= ALAMAT LENGKAP ================= */
+
+#alamatLengkapBox {
+  margin-top: 10px;
+}
+
+#alamatLengkap {
+  min-height: 80px;
+  resize: vertical;
+  font-size: 14px;
+}
+
 .alamat-box {
-  display: none;
   margin-top: 10px;
   animation: fadeIn 0.3s ease;
 }
@@ -891,10 +902,17 @@ if ((alamat === "Pacet" || alamat === "Majalaya") && !alamatLengkap) {
   const ongkir = alamatSelect.selectedOptions[0]?.dataset.ongkir || 0;
   const pembayaran = document.getElementById("pembayaran").value;
 
-  if (!nama || !alamat || !pembayaran || keranjang.length === 0) {
-    alert("Lengkapi data dulu!");
-    return;
-  }
+  const alamatLengkap = document.getElementById("alamatLengkap")?.value;
+
+if (!nama || !alamat || !pembayaran || keranjang.length === 0) {
+  alert("Lengkapi data dulu!");
+  return;
+}
+
+if ((alamat === "Pacet" || alamat === "Majalaya") && !alamatLengkap) {
+  alert("Alamat lengkap wajib diisi!");
+  return;
+}
 
   let total = keranjang.reduce((sum, item) => sum + item.harga, 0);
   total += parseInt(ongkir);
@@ -1179,7 +1197,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   alamatSelect.addEventListener("change", toggleAlamat);
 
-  // 🔥 penting: biar gak bug saat reload
+  // 🔥 ini penting banget
   toggleAlamat();
 });
 
@@ -1257,8 +1275,8 @@ index.html
 <input id="nama" placeholder="Nama">
 
 <select id="alamat">
-<div id="alamatLengkapBox" class="alamat-box">
-  <input id="alamatLengkap" placeholder="Desa, RT, RW, No Rumah, Patokan">
+<div id="alamatLengkapBox" class="alamat-box" style="display:none;">
+  <textarea id="alamatLengkap" placeholder="Desa, RT, RW, No Rumah, Patokan"></textarea>
   <small>Wajib isi alamat lengkap (contoh: Desa Sukamaju RT02 RW05 No12 dekat masjid)</small>
 </div>
   <option value="">Pilih alamat</option>
