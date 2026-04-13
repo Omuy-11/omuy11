@@ -998,10 +998,16 @@ function kirimOrder(nama, alamat, alamatLengkap, pembayaran, total) {
     alert("Nomor Antrian Kamu: A" + String(nomor).padStart(3, "0"));
 
     // 🔥 kirim ke logistik + alamat lengkap
-    setTimeout(() => {
-      const encodedAlamat = encodeURIComponent(alamatLengkap);
-      window.open(`logistik.html?id=${data.id}&alamat=${encodedAlamat}`, "_blank");
-    }, 500);
+    // ❌ HAPUS window.open logistik
+
+keranjang = [];
+renderKeranjang();
+mulaiPantauStatus();
+
+// optional: redirect ke menu / reload
+setTimeout(() => {
+  window.location.href = "index.html";
+}, 1000);
 
     keranjang = [];
     renderKeranjang();
@@ -1210,6 +1216,38 @@ function loadStats() {
     });
 }
 
+/* ================= LOGISTIK ================= */
+
+function loadLogistik() {
+  fetch(BASE_URL + "/public-orders")
+    .then(res => res.json())
+    .then(data => {
+
+      const container = document.getElementById("logistik");
+      if (!container) return;
+
+      container.innerHTML = "";
+
+      data.forEach(o => {
+
+        const div = document.createElement("div");
+        div.className = "card";
+
+        div.innerHTML = `
+          <b>A${String(o.antrian).padStart(3,"0")}</b><br>
+          ${o.nama}<br>
+          📍 ${o.alamat}<br>
+          🏠 ${o.alamat_lengkap || "-"}<br>
+          💰 Rp ${o.total}<br>
+          <b>Status: ${o.status}</b>
+        `;
+
+        container.appendChild(div);
+      });
+
+    });
+}
+
 menu.html
 
 <!DOCTYPE html>
@@ -1394,3 +1432,31 @@ Silakan login untuk admin untuk mengelola pesanan dan melihat statistik penjuala
 ads.txt
 
 google.com, pub-8095439751167847, DIRECT, f08c47fec0942fa0
+
+logistik.html
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>Logistik</title>
+<link rel="stylesheet" href="style.css">
+</head>
+
+<body onload="loadLogistik()">
+
+<div class="container">
+
+<button onclick="window.location='menu.html'" style="background:#64748b;">
+  ⬅️ Kembali
+</button>
+
+<h2>🚚 Logistik</h2>
+
+<div id="logistik"></div>
+
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>

@@ -146,10 +146,16 @@ function kirimOrder(nama, alamat, alamatLengkap, pembayaran, total) {
     alert("Nomor Antrian Kamu: A" + String(nomor).padStart(3, "0"));
 
     // 🔥 kirim ke logistik + alamat lengkap
-    setTimeout(() => {
-      const encodedAlamat = encodeURIComponent(alamatLengkap);
-      window.open(`logistik.html?id=${data.id}&alamat=${encodedAlamat}`, "_blank");
-    }, 500);
+    // ❌ HAPUS window.open logistik
+
+keranjang = [];
+renderKeranjang();
+mulaiPantauStatus();
+
+// optional: redirect ke menu / reload
+setTimeout(() => {
+  window.location.href = "index.html";
+}, 1000);
 
     keranjang = [];
     renderKeranjang();
@@ -355,5 +361,37 @@ function loadStats() {
         🔵 Diproses: ${proses}<br>
         🟢 Selesai: ${selesai}
       `;
+    });
+}
+
+/* ================= LOGISTIK ================= */
+
+function loadLogistik() {
+  fetch(BASE_URL + "/public-orders")
+    .then(res => res.json())
+    .then(data => {
+
+      const container = document.getElementById("logistik");
+      if (!container) return;
+
+      container.innerHTML = "";
+
+      data.forEach(o => {
+
+        const div = document.createElement("div");
+        div.className = "card";
+
+        div.innerHTML = `
+          <b>A${String(o.antrian).padStart(3,"0")}</b><br>
+          ${o.nama}<br>
+          📍 ${o.alamat}<br>
+          🏠 ${o.alamat_lengkap || "-"}<br>
+          💰 Rp ${o.total}<br>
+          <b>Status: ${o.status}</b>
+        `;
+
+        container.appendChild(div);
+      });
+
     });
 }

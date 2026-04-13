@@ -6,52 +6,20 @@
 <link rel="stylesheet" href="style.css">
 </head>
 
-<body>
+<body onload="loadLogistik()">
 
 <div class="container">
-  <h2>🚚 Data Pengiriman</h2>
 
-  <div id="data" class="card">Loading...</div>
+<button onclick="window.location='menu.html'" style="background:#64748b;">
+  ⬅️ Kembali
+</button>
 
-  <button onclick="window.close()" style="background:#64748b; margin-top:10px;">
-    Tutup
-  </button>
+<h2>🚚 Logistik</h2>
+
+<div id="logistik"></div>
+
 </div>
 
-<script>
-
-const BASE_URL = "https://omuy11-production.up.railway.app";
-
-function getId() {
-  const url = new URL(window.location.href);
-  return url.searchParams.get("id");
-}
-
-function loadData() {
-  const id = getId();
-
-  fetch(BASE_URL + "/public-orders")
-    .then(res => res.json())
-    .then(data => {
-      const order = data.find(o => o.id == id);
-
-      if (!order) {
-        document.getElementById("data").innerText = "Data tidak ditemukan";
-        return;
-      }
-
-      document.getElementById("data").innerHTML = `
-        <b>Nama:</b> ${order.nama}<br><br>
-        <b>Alamat:</b> ${order.alamat}<br><br>
-        <b>Alamat Lengkap:</b><br>
-        ${order.alamat_lengkap || "-"}
-      `;
-    });
-}
-
-loadData();
-
-</script>
-
+<script src="script.js"></script>
 </body>
 </html>
