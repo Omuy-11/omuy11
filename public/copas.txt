@@ -63,7 +63,7 @@ function auth(req, res, next) {
 
 // CREATE ORDER (PUBLIC)
 app.post("/order", (req, res) => {
-  const { nama, items, total, alamat, pembayaran } = req.body;
+  const { nama, items, total, alamat, alamatLengkap, pembayaran } = req.body;
 
   db.query("SELECT MAX(antrian) as last FROM orders", (err, result) => {
 
@@ -76,8 +76,9 @@ app.post("/order", (req, res) => {
     let nextAntrian = parseInt(last) + 1;
 
     db.query(
-      "INSERT INTO orders (nama, items, total, alamat, pembayaran, antrian, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
-      [nama, JSON.stringify(items), total, alamat, pembayaran, nextAntrian, "Menunggu"],
+      db.query(
+  "INSERT INTO orders (nama, items, total, alamat, alamat_lengkap, pembayaran, antrian, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+  [nama, JSON.stringify(items), total, alamat, alamatLengkap, pembayaran, nextAntrian, "Menunggu"],
       (err2, result2) => {
 
         if (err2) {
@@ -511,10 +512,6 @@ index.html
 <!-- FORM -->
 <input id="nama" placeholder="Nama">
 
-<select id="alamat">
-  <option value="">Pilih alamat</option>
-  <option value="Pacet" data-ongkir="1000">Pacet - Rp 1.000</option>
-  <option value="Majalaya" data-ongkir="2000">Majalaya - Rp 2.000</option>
 </select>
 
 <select id="pembayaran">
@@ -955,7 +952,8 @@ function lanjutOrder() {
 
 /* ================= KIRIM ORDER ================= */
 
-function kirimOrder(nama, alamat, alamatLengkap, pembayaran, total) {
+function kirimOrder(nama, alamat, pembayaran, total) {
+  const alamatLengkap = document.getElementById("alamatLengkap")?.value || "";
 
   fetch(BASE_URL + "/order", {
     method: "POST",
@@ -966,21 +964,22 @@ function kirimOrder(nama, alamat, alamatLengkap, pembayaran, total) {
       nama,
       items: keranjang,
       total,
-      alamat: alamat + " - " + alamatLengkap,
+      alamat,
+      alamatLengkap, // 🔥 TAMBAH INI
       pembayaran
     })
   })
     .then(res => res.json())
     .then(data => {
-
       currentOrderId = data.id;
 
       let nomor = data.antrian || 0;
 
       alert("Nomor Antrian Kamu: A" + String(nomor).padStart(3, "0"));
 
+      // 🔥 kirim ke logistik.html
       setTimeout(() => {
-        window.open("antrian.html", "_blank");
+        window.open("logistik.html?id=" + data.id, "_blank");
       }, 500);
 
       keranjang = [];
@@ -1090,6 +1089,7 @@ function updateStatus(id, status) {
       "Content-Type": "application/json",
       "Authorization": token
     },
+	
     body: JSON.stringify({ status })
   })
   .then(res => {

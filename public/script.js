@@ -113,7 +113,8 @@ function lanjutOrder() {
 
 /* ================= KIRIM ORDER ================= */
 
-function kirimOrder(nama, alamat, alamatLengkap, pembayaran, total) {
+function kirimOrder(nama, alamat, pembayaran, total) {
+  const alamatLengkap = document.getElementById("alamatLengkap")?.value || "";
 
   fetch(BASE_URL + "/order", {
     method: "POST",
@@ -124,21 +125,22 @@ function kirimOrder(nama, alamat, alamatLengkap, pembayaran, total) {
       nama,
       items: keranjang,
       total,
-      alamat: alamat + " - " + alamatLengkap,
+      alamat,
+      alamatLengkap, // 🔥 TAMBAH INI
       pembayaran
     })
   })
     .then(res => res.json())
     .then(data => {
-
       currentOrderId = data.id;
 
       let nomor = data.antrian || 0;
 
       alert("Nomor Antrian Kamu: A" + String(nomor).padStart(3, "0"));
 
+      // 🔥 kirim ke logistik.html
       setTimeout(() => {
-        window.open("antrian.html", "_blank");
+        window.open("logistik.html?id=" + data.id, "_blank");
       }, 500);
 
       keranjang = [];

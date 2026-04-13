@@ -61,7 +61,7 @@ function auth(req, res, next) {
 
 // CREATE ORDER (PUBLIC)
 app.post("/order", (req, res) => {
-  const { nama, items, total, alamat, pembayaran } = req.body;
+  const { nama, items, total, alamat, alamatLengkap, pembayaran } = req.body;
 
   db.query("SELECT MAX(antrian) as last FROM orders", (err, result) => {
 
@@ -74,8 +74,9 @@ app.post("/order", (req, res) => {
     let nextAntrian = parseInt(last) + 1;
 
     db.query(
-      "INSERT INTO orders (nama, items, total, alamat, pembayaran, antrian, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
-      [nama, JSON.stringify(items), total, alamat, pembayaran, nextAntrian, "Menunggu"],
+      db.query(
+  "INSERT INTO orders (nama, items, total, alamat, alamat_lengkap, pembayaran, antrian, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+  [nama, JSON.stringify(items), total, alamat, alamatLengkap, pembayaran, nextAntrian, "Menunggu"],
       (err2, result2) => {
 
         if (err2) {
