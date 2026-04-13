@@ -94,7 +94,7 @@ body {
 
 <body>
 
-<button onclick="window.location.href='index.html'" 
+<button onclick="goBack()" 
 style="position:absolute; top:10px; left:10px; background:#64748b;">
   ⬅️
 </button>
@@ -235,6 +235,14 @@ function loadAntrian() {
 /* ================= REALTIME ================= */
 setInterval(loadAntrian, 2000);
 loadAntrian();
+
+function goBack() {
+  if (document.referrer) {
+    window.history.back();
+  } else {
+    window.location.href = "index.html";
+  }
+}
 
 </script>
 

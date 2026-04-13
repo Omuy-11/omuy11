@@ -274,7 +274,7 @@ body {
 
 <body>
 
-<button onclick="window.location.href='index.html'" 
+<button onclick="goBack()" 
 style="position:absolute; top:10px; left:10px; background:#64748b;">
   ⬅️
 </button>
@@ -292,7 +292,7 @@ style="position:absolute; top:10px; left:10px; background:#64748b;">
 
 const BASE_URL = "https://omuy11-production.up.railway.app";
 
-speechSynthesis.cancel(); // 🔥 TARUH DI SINI
+speechSynthesis.cancel();
 
 let lastStatus = {};
 let firstLoad = true;
@@ -319,20 +319,16 @@ function panggil(nomor, status) {
 
   if (!text) return;
 
-  // 🔥 pastikan suara ready
   function speak() {
     const suara = new SpeechSynthesisUtterance(text);
     suara.lang = "id-ID";
     suara.rate = 0.95;
     suara.pitch = 1;
 
-    // 🔥 stop suara sebelumnya
     speechSynthesis.cancel();
-
     speechSynthesis.speak(suara);
   }
 
-  // 🔥 retry kalau voice belum siap
   if (speechSynthesis.getVoices().length === 0) {
     speechSynthesis.onvoiceschanged = speak;
   } else {
@@ -345,22 +341,20 @@ function loadAntrian() {
   fetch(BASE_URL + "/public-orders")
     .then(res => res.json())
     .then(data => {
-	
-	console.log("DATA ANTRIAN:", data);
+
+      console.log("DATA ANTRIAN:", data);
 
       if (!data || data.length === 0) {
-  document.getElementById("bigNumber").innerText = "A000";
-  document.getElementById("bigStatus").innerText = "Belum ada order";
-  return;
-}
+        document.getElementById("bigNumber").innerText = "A000";
+        document.getElementById("bigStatus").innerText = "Belum ada order";
+        return;
+      }
 
       const maxId = Math.max(...data.map(o => o.id));
       const utama = data.find(o => o.id === maxId);
 
       const nomorUtama = String(utama.antrian).padStart(3,"0");
       const statusUtama = utama.status.toLowerCase().trim();
-
-      /* ================= NOMOR BESAR ================= */
 
       const big = document.getElementById("bigNumber");
       const statusEl = document.getElementById("bigStatus");
@@ -371,15 +365,11 @@ function loadAntrian() {
       big.classList.add("flash");
       setTimeout(() => big.classList.remove("flash"), 400);
 
-      /* ================= SUARA ================= */
-
       if (!firstLoad && lastStatus[utama.id] !== statusUtama) {
         panggil(nomorUtama, statusUtama);
       }
 
       lastStatus[utama.id] = statusUtama;
-
-      /* ================= LIST ================= */
 
       const list = document.getElementById("list");
       list.innerHTML = "";
@@ -398,12 +388,10 @@ function loadAntrian() {
         if (status === "diantar") warna = "diantar";
         if (status === "selesai") warna = "selesai";
 
-        // blink khusus MENUNGGU terbaru
         if (status === "menunggu" && o.id === maxId) {
           div.classList.add("blink");
         }
 
-        // fade out kalau selesai
         if (status === "selesai") {
           setTimeout(() => {
             div.classList.add("fade-out");
@@ -420,12 +408,21 @@ function loadAntrian() {
 
       firstLoad = false;
 
-    });
+    })
+    .catch(err => console.error("ERROR ANTRIAN:", err));
 }
 
 /* ================= REALTIME ================= */
 setInterval(loadAntrian, 2000);
 loadAntrian();
+
+function goBack() {
+  if (document.referrer) {
+    window.history.back();
+  } else {
+    window.location.href = "index.html";
+  }
+}
 
 </script>
 
@@ -882,7 +879,7 @@ function lanjutOrder() {
 /* ================= KIRIM ORDER ================= */
 
 function kirimOrder(nama, alamat, pembayaran, total) {
-  fetch(BASE_URL + "/order", {   // ✅ FIX ENDPOINT
+  fetch(BASE_URL + "/order", {
     method: "POST",
     headers: {
       "Content-Type": "application/json"
@@ -920,7 +917,7 @@ function kirimOrder(nama, alamat, pembayaran, total) {
 
 function mulaiPantauStatus() {
   setInterval(() => {
-    fetch(BASE_URL + "/public-orders") // ini public jadi ga perlu auth
+    fetch(BASE_URL + "/public-orders")
       .then(res => res.json())
       .then(data => {
         const order = data.find(o => o.id == currentOrderId);
@@ -1002,21 +999,47 @@ function loadOrders() {
 }
 
 function updateStatus(id, status) {
+  const token = localStorage.getItem("token");
+
+  if (!token) {
+    alert("Harus login dulu!");
+    window.location = "login.html";
+    return;
+  }
+
   fetch(BASE_URL + "/order/" + id, {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
-      "Authorization": localStorage.getItem("token")
+      "Authorization": token
     },
     body: JSON.stringify({ status })
+  })
+  .then(res => {
+    if (res.status === 401) {
+      logout();
+    }
   });
 }
 
 function hapus(id) {
+  const token = localStorage.getItem("token");
+
+  if (!token) {
+    alert("Harus login dulu!");
+    window.location = "login.html";
+    return;
+  }
+
   fetch(BASE_URL + "/order/" + id, {
     method: "DELETE",
     headers: {
-      "Authorization": localStorage.getItem("token")
+      "Authorization": token
+    }
+  })
+  .then(res => {
+    if (res.status === 401) {
+      logout();
     }
   });
 }
