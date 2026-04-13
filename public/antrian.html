@@ -237,17 +237,9 @@ setInterval(loadAntrian, 2000);
 loadAntrian();
 
 function goBack() {
-  if (document.referrer) {
-    window.history.back();
-  } else {
-    window.location.href = "index.html";
-  }
-}
+  const url = new URLSearchParams(window.location.search);
+  const from = url.get("from");
 
-const params = new URLSearchParams(window.location.search);
-const from = params.get("from");
-
-function goBack() {
   if (from === "admin") {
     window.location.href = "menu.html";
   } else {

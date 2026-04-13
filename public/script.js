@@ -3,19 +3,26 @@ let currentOrderId = null;
 
 const BASE_URL = "https://omuy11-production.up.railway.app";
 
+/* ================= ALAMAT TOGGLE ================= */
+
 document.addEventListener("DOMContentLoaded", () => {
   const alamatSelect = document.getElementById("alamat");
   const box = document.getElementById("alamatLengkapBox");
 
-  if (alamatSelect) {
-    alamatSelect.addEventListener("change", () => {
-      if (alamatSelect.value === "Pacet" || alamatSelect.value === "Majalaya") {
-        box.style.display = "block";
-      } else {
-        box.style.display = "none";
-      }
-    });
+  if (!alamatSelect || !box) return;
+
+  function toggleAlamat() {
+    const val = alamatSelect.value;
+
+    if (val === "Pacet" || val === "Majalaya") {
+      box.style.display = "block";
+    } else {
+      box.style.display = "none";
+    }
   }
+
+  alamatSelect.addEventListener("change", toggleAlamat);
+  toggleAlamat(); // penting biar gak bug reload
 });
 
 /* ================= TAMBAH ITEM ================= */
@@ -54,26 +61,21 @@ function checkout() {
   const nama = document.getElementById("nama").value;
   const alamatSelect = document.getElementById("alamat");
   const alamat = alamatSelect.value;
-  const alamatLengkap = document.getElementById("alamatLengkap")?.value || "";
-
-if ((alamat === "Pacet" || alamat === "Majalaya") && !alamatLengkap) {
-  alert("Isi alamat lengkap dulu!");
-  return;
-}
-  const ongkir = alamatSelect.selectedOptions[0]?.dataset.ongkir || 0;
   const pembayaran = document.getElementById("pembayaran").value;
 
-  const alamatLengkap = document.getElementById("alamatLengkap")?.value;
+  const alamatLengkap = document.getElementById("alamatLengkap")?.value || "";
 
-if (!nama || !alamat || !pembayaran || keranjang.length === 0) {
-  alert("Lengkapi data dulu!");
-  return;
-}
+  if (!nama || !alamat || !pembayaran || keranjang.length === 0) {
+    alert("Lengkapi data dulu!");
+    return;
+  }
 
-if ((alamat === "Pacet" || alamat === "Majalaya") && !alamatLengkap) {
-  alert("Alamat lengkap wajib diisi!");
-  return;
-}
+  if ((alamat === "Pacet" || alamat === "Majalaya") && !alamatLengkap) {
+    alert("Alamat lengkap wajib diisi!");
+    return;
+  }
+
+  const ongkir = alamatSelect.selectedOptions[0]?.dataset.ongkir || 0;
 
   let total = keranjang.reduce((sum, item) => sum + item.harga, 0);
   total += parseInt(ongkir);
@@ -82,9 +84,11 @@ if ((alamat === "Pacet" || alamat === "Majalaya") && !alamatLengkap) {
     document.getElementById("qrisBox").style.display = "flex";
     document.getElementById("totalBayar").innerText = "Total: Rp " + total;
   } else {
-    kirimOrder(nama, alamat, pembayaran, total);
+    kirimOrder(nama, alamat, alamatLengkap, pembayaran, total);
   }
 }
+
+/* ================= QRIS ================= */
 
 function lanjutOrder() {
   const cek = document.getElementById("konfirmasi").checked;
@@ -93,38 +97,39 @@ function lanjutOrder() {
   const nama = document.getElementById("nama").value;
   const alamatSelect = document.getElementById("alamat");
   const alamat = alamatSelect.value;
-  const ongkir = alamatSelect.selectedOptions[0]?.dataset.ongkir || 0;
   const pembayaran = document.getElementById("pembayaran").value;
+
+  const alamatLengkap = document.getElementById("alamatLengkap")?.value || "";
+
+  const ongkir = alamatSelect.selectedOptions[0]?.dataset.ongkir || 0;
 
   let total = keranjang.reduce((sum, item) => sum + item.harga, 0);
   total += parseInt(ongkir);
 
-  kirimOrder(nama, alamat, pembayaran, total);
+  kirimOrder(nama, alamat, alamatLengkap, pembayaran, total);
 
   document.getElementById("qrisBox").style.display = "none";
 }
 
 /* ================= KIRIM ORDER ================= */
 
-function kirimOrder(nama, alamat, pembayaran, total) {
+function kirimOrder(nama, alamat, alamatLengkap, pembayaran, total) {
+
   fetch(BASE_URL + "/order", {
     method: "POST",
     headers: {
       "Content-Type": "application/json"
     },
-    const alamatLengkap = document.getElementById("alamatLengkap")?.value || "";
-
-body: JSON.stringify({
-  nama,
-  items: keranjang,
-  total,
-  alamat: alamat + " - " + alamatLengkap,
-  pembayaran
-})
+    body: JSON.stringify({
+      nama,
+      items: keranjang,
+      total,
+      alamat: alamat + " - " + alamatLengkap,
+      pembayaran
+    })
   })
     .then(res => res.json())
     .then(data => {
-      console.log("ORDER MASUK:", data);
 
       currentOrderId = data.id;
 
@@ -246,9 +251,7 @@ function updateStatus(id, status) {
     body: JSON.stringify({ status })
   })
   .then(res => {
-    if (res.status === 401) {
-      logout();
-    }
+    if (res.status === 401) logout();
   });
 }
 
@@ -268,9 +271,7 @@ function hapus(id) {
     }
   })
   .then(res => {
-    if (res.status === 401) {
-      logout();
-    }
+    if (res.status === 401) logout();
   });
 }
 
