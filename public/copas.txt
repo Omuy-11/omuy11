@@ -803,6 +803,21 @@ let currentOrderId = null;
 
 const BASE_URL = "https://omuy11-production.up.railway.app";
 
+document.addEventListener("DOMContentLoaded", () => {
+  const alamatSelect = document.getElementById("alamat");
+  const box = document.getElementById("alamatLengkapBox");
+
+  if (alamatSelect) {
+    alamatSelect.addEventListener("change", () => {
+      if (alamatSelect.value === "Pacet" || alamatSelect.value === "Majalaya") {
+        box.style.display = "block";
+      } else {
+        box.style.display = "none";
+      }
+    });
+  }
+});
+
 /* ================= TAMBAH ITEM ================= */
 
 function tambah(nama, harga) {
@@ -839,6 +854,12 @@ function checkout() {
   const nama = document.getElementById("nama").value;
   const alamatSelect = document.getElementById("alamat");
   const alamat = alamatSelect.value;
+  const alamatLengkap = document.getElementById("alamatLengkap")?.value || "";
+
+if ((alamat === "Pacet" || alamat === "Majalaya") && !alamatLengkap) {
+  alert("Isi alamat lengkap dulu!");
+  return;
+}
   const ongkir = alamatSelect.selectedOptions[0]?.dataset.ongkir || 0;
   const pembayaran = document.getElementById("pembayaran").value;
 
@@ -1184,6 +1205,12 @@ index.html
 <input id="nama" placeholder="Nama">
 
 <select id="alamat">
+<div id="alamatLengkapBox" style="display:none;">
+  <input id="alamatLengkap" placeholder="Contoh: Desa Sukamaju, RT 02 RW 05, No 12, dekat masjid, pagar hijau">
+  <small style="color:#666;">
+    Format: Desa, RT, RW, No Rumah, Patokan, Catatan
+  </small>
+</div>
   <option value="">Pilih alamat</option>
   <option value="Pacet" data-ongkir="1000">Pacet - Rp 1.000</option>
   <option value="Majalaya" data-ongkir="2000">Majalaya - Rp 2.000</option>

@@ -3,6 +3,21 @@ let currentOrderId = null;
 
 const BASE_URL = "https://omuy11-production.up.railway.app";
 
+document.addEventListener("DOMContentLoaded", () => {
+  const alamatSelect = document.getElementById("alamat");
+  const box = document.getElementById("alamatLengkapBox");
+
+  if (alamatSelect) {
+    alamatSelect.addEventListener("change", () => {
+      if (alamatSelect.value === "Pacet" || alamatSelect.value === "Majalaya") {
+        box.style.display = "block";
+      } else {
+        box.style.display = "none";
+      }
+    });
+  }
+});
+
 /* ================= TAMBAH ITEM ================= */
 
 function tambah(nama, harga) {
@@ -39,6 +54,12 @@ function checkout() {
   const nama = document.getElementById("nama").value;
   const alamatSelect = document.getElementById("alamat");
   const alamat = alamatSelect.value;
+  const alamatLengkap = document.getElementById("alamatLengkap")?.value || "";
+
+if ((alamat === "Pacet" || alamat === "Majalaya") && !alamatLengkap) {
+  alert("Isi alamat lengkap dulu!");
+  return;
+}
   const ongkir = alamatSelect.selectedOptions[0]?.dataset.ongkir || 0;
   const pembayaran = document.getElementById("pembayaran").value;
 
@@ -84,13 +105,15 @@ function kirimOrder(nama, alamat, pembayaran, total) {
     headers: {
       "Content-Type": "application/json"
     },
-    body: JSON.stringify({
-      nama,
-      items: keranjang,
-      total,
-      alamat,
-      pembayaran
-    })
+    const alamatLengkap = document.getElementById("alamatLengkap")?.value || "";
+
+body: JSON.stringify({
+  nama,
+  items: keranjang,
+  total,
+  alamat: alamat + " - " + alamatLengkap,
+  pembayaran
+})
   })
     .then(res => res.json())
     .then(data => {
