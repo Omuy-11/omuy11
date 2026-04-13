@@ -4,6 +4,7 @@ let currentOrderId = null;
 const BASE_URL = "https://omuy11-production.up.railway.app";
 
 /* ================= ALAMAT TOGGLE ================= */
+  /* ================= ALAMAT TOGGLE ================= */
 
 document.addEventListener("DOMContentLoaded", () => {
   const alamatSelect = document.getElementById("alamat");
@@ -22,13 +23,16 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   alamatSelect.addEventListener("change", toggleAlamat);
-  toggleAlamat(); // penting biar gak bug reload
+  toggleAlamat();
 });
 
 /* ================= TAMBAH ITEM ================= */
 
 function tambah(nama, harga) {
-  keranjang.push({ nama, harga });
+  keranjang.push({ 
+    nama, 
+    harga: parseInt(harga) // 🔥 fix utama
+  });
   renderKeranjang();
 }
 
@@ -45,14 +49,14 @@ function renderKeranjang() {
   let total = 0;
 
   keranjang.forEach((item) => {
-    total += item.harga;
+    total += Number(item.harga);
 
     const li = document.createElement("li");
     li.innerHTML = `${item.nama} - Rp ${item.harga}`;
     list.appendChild(li);
   });
 
-  totalEl.innerText = "Rp " + total;
+  totalEl.innerText = "Rp " + total; // 🔥 ini yang kamu hilangin tadi
 }
 
 /* ================= CHECKOUT ================= */
@@ -62,8 +66,9 @@ function checkout() {
   const alamatSelect = document.getElementById("alamat");
   const alamat = alamatSelect.value;
   const pembayaran = document.getElementById("pembayaran").value;
-
   const alamatLengkap = document.getElementById("alamatLengkap")?.value || "";
+  
+  console.log("KERANJANG:", keranjang);
 
   if (!nama || !alamat || !pembayaran || keranjang.length === 0) {
     alert("Lengkapi data dulu!");
@@ -75,7 +80,7 @@ function checkout() {
     return;
   }
 
-  const ongkir = alamatSelect.selectedOptions[0]?.dataset.ongkir || 0;
+  const ongkir = parseInt(alamatSelect.selectedOptions[0]?.dataset.ongkir || 0);
 
   let total = keranjang.reduce((sum, item) => sum + item.harga, 0);
   total += parseInt(ongkir);
@@ -106,6 +111,7 @@ function lanjutOrder() {
   let total = keranjang.reduce((sum, item) => sum + item.harga, 0);
   total += parseInt(ongkir);
 
+  // ✅ INI YANG BENAR
   kirimOrder(nama, alamat, alamatLengkap, pembayaran, total);
 
   document.getElementById("qrisBox").style.display = "none";
@@ -113,8 +119,7 @@ function lanjutOrder() {
 
 /* ================= KIRIM ORDER ================= */
 
-function kirimOrder(nama, alamat, pembayaran, total) {
-  const alamatLengkap = document.getElementById("alamatLengkap")?.value || "";
+function kirimOrder(nama, alamat, alamatLengkap, pembayaran, total) {
 
   fetch(BASE_URL + "/order", {
     method: "POST",
@@ -126,28 +131,35 @@ function kirimOrder(nama, alamat, pembayaran, total) {
       items: keranjang,
       total,
       alamat,
-      alamatLengkap, // 🔥 TAMBAH INI
+      alamatLengkap,
       pembayaran
     })
   })
-    .then(res => res.json())
-    .then(data => {
-      currentOrderId = data.id;
+  .then(res => {
+    if (!res.ok) throw new Error("Server error");
+    return res.json();
+  })
+  .then(data => {
+    currentOrderId = data.id;
 
-      let nomor = data.antrian || 0;
+    let nomor = data.antrian || 0;
 
-      alert("Nomor Antrian Kamu: A" + String(nomor).padStart(3, "0"));
+    alert("Nomor Antrian Kamu: A" + String(nomor).padStart(3, "0"));
 
-      // 🔥 kirim ke logistik.html
-      setTimeout(() => {
-        window.open("logistik.html?id=" + data.id, "_blank");
-      }, 500);
+    // 🔥 kirim ke logistik + alamat lengkap
+    setTimeout(() => {
+      const encodedAlamat = encodeURIComponent(alamatLengkap);
+      window.open(`logistik.html?id=${data.id}&alamat=${encodedAlamat}`, "_blank");
+    }, 500);
 
-      keranjang = [];
-      renderKeranjang();
-      mulaiPantauStatus();
-    })
-    .catch(err => console.error("ERROR:", err));
+    keranjang = [];
+    renderKeranjang();
+    mulaiPantauStatus();
+  })
+  .catch(err => {
+    console.error("ERROR:", err);
+    alert("Gagal kirim order!");
+  });
 }
 
 /* ================= STATUS ================= */
@@ -342,25 +354,3 @@ function loadStats() {
       `;
     });
 }
-
-document.addEventListener("DOMContentLoaded", () => {
-  const alamatSelect = document.getElementById("alamat");
-  const box = document.getElementById("alamatLengkapBox");
-
-  if (!alamatSelect || !box) return;
-
-  function toggleAlamat() {
-    const val = alamatSelect.value;
-
-    if (val === "Pacet" || val === "Majalaya") {
-      box.style.display = "block";
-    } else {
-      box.style.display = "none";
-    }
-  }
-
-  alamatSelect.addEventListener("change", toggleAlamat);
-
-  // 🔥 ini penting banget
-  toggleAlamat();
-});
