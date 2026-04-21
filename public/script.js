@@ -89,13 +89,25 @@ function checkout() {
   const alamat = alamatSelect.value;
   const pembayaran = document.getElementById("pembayaran").value;
   const alamatLengkap = document.getElementById("alamatLengkap")?.value || "";
+
+  // 🔥 TAMBAHAN
+  let noTelp = document.getElementById("noTelp").value;
+
+  if (noTelp.startsWith("08")) {
+    noTelp = "62" + noTelp.slice(1);
+  }
   
   console.log("KERANJANG:", keranjang);
 
-  if (!nama || !alamat || !pembayaran || keranjang.length === 0) {
+  if (!nama || !alamat || !pembayaran || !noTelp || keranjang.length === 0) {
     alert("Lengkapi data dulu!");
     return;
   }
+  
+  if (telp.length < 10) {
+  alert("No telepon tidak valid!");
+  return;
+}
 
   if ((alamat === "Pacet" || alamat === "Majalaya") && !alamatLengkap) {
     alert("Alamat lengkap wajib diisi!");
@@ -107,26 +119,27 @@ function checkout() {
   let total = keranjang.reduce((sum, item) => sum + item.harga, 0);
   total += parseInt(ongkir);
 
-kirimOrder(nama, alamat, alamatLengkap, pembayaran, total);
+kirimOrder(nama, alamat, alamatLengkap, pembayaran, total, noTelp);
 }
 
 /* ================= KIRIM ORDER ================= */
 
-function kirimOrder(nama, alamat, alamatLengkap, pembayaran, total) {
+function kirimOrder(nama, telp, alamat, alamatLengkap, pembayaran, total) {
 
   fetch(BASE_URL + "/order", {
     method: "POST",
     headers: {
       "Content-Type": "application/json"
     },
-    body: JSON.stringify({
-      nama,
-      items: keranjang,
-      total,
-      alamat,
-      alamatLengkap,
-      pembayaran
-    })
+body: JSON.stringify({
+  nama,
+  telp, // 🔥 ini tambahan
+  items: keranjang,
+  total,
+  alamat,
+  alamatLengkap,
+  pembayaran
+})
   })
   .then(res => {
     if (!res.ok) throw new Error("Server error");
@@ -367,13 +380,18 @@ function loadLogistik() {
         div.className = "card";
 
         div.innerHTML = `
-          <b>A${String(o.antrian).padStart(3,"0")}</b><br>
-          ${o.nama}<br>
-          📍 ${o.alamat}<br>
-          🏠 ${o.alamat_lengkap || "-"}<br>
-          💰 Rp ${o.total}<br>
-          <b>Status: ${o.status}</b>
-        `;
+  <b>A${String(o.antrian).padStart(3,"0")}</b><br>
+  ${o.nama}<br>
+  📞 ${o.no_telp || "-"}<br>
+  📍 ${o.alamat}<br>
+  🏠 ${o.alamat_lengkap || "-"}<br>
+  💰 Rp ${o.total}<br>
+  <b>Status: ${o.status}</b><br><br>
+
+  <a href="https://wa.me/${o.no_telp}" target="_blank">
+    <button style="background:#25D366;">💬 Chat Customer</button>
+  </a>
+`;
 
         container.appendChild(div);
       });

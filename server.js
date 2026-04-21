@@ -70,7 +70,7 @@ function auth(req, res, next) {
 
 // CREATE ORDER (PUBLIC)
 app.post("/order", (req, res) => {
-  const { nama, items, total, alamat, alamatLengkap, pembayaran } = req.body;
+  const { nama, telp, items, total, alamat, alamatLengkap, pembayaran } = req.body;
 
   // 🔥 1. CEK STOCK DULU
   db.query("SELECT * FROM stocks", (err, stocks) => {
@@ -110,15 +110,16 @@ app.post("/order", (req, res) => {
       db.query(
         "INSERT INTO orders (nama, items, total, alamat, alamat_lengkap, pembayaran, antrian, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
         [
-          nama,
-          JSON.stringify(items),
-          total,
-          alamat,
-          alamatLengkap,
-          pembayaran,
-          nextAntrian,
-          "Menunggu"
-        ],
+  nama,
+  telp,
+  JSON.stringify(items),
+  total,
+  alamat,
+  alamatLengkap,
+  pembayaran,
+  nextAntrian,
+  "Menunggu"
+],
         (err2, result2) => {
 
           if (err2) {

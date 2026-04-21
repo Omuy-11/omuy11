@@ -72,7 +72,7 @@
 
 	// CREATE ORDER (PUBLIC)
 app.post("/order", (req, res) => {
-  const { nama, items, total, alamat, alamatLengkap, pembayaran } = req.body;
+  const { nama, telp, items, total, alamat, alamatLengkap, pembayaran } = req.body;
 
   // 🔥 1. CEK STOCK DULU
   db.query("SELECT * FROM stocks", (err, stocks) => {
@@ -112,15 +112,16 @@ app.post("/order", (req, res) => {
       db.query(
         "INSERT INTO orders (nama, items, total, alamat, alamat_lengkap, pembayaran, antrian, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
         [
-          nama,
-          JSON.stringify(items),
-          total,
-          alamat,
-          alamatLengkap,
-          pembayaran,
-          nextAntrian,
-          "Menunggu"
-        ],
+  nama,
+  telp,
+  JSON.stringify(items),
+  total,
+  alamat,
+  alamatLengkap,
+  pembayaran,
+  nextAntrian,
+  "Menunggu"
+],
         (err2, result2) => {
 
           if (err2) {
@@ -639,6 +640,7 @@ app.post("/order", (req, res) => {
 
 	<div id="alamatLengkapBox" class="alamat-box" style="display:none;">
 	  <textarea id="alamatLengkap" placeholder="Desa, RT, RW, No Rumah, Patokan"></textarea>
+	  <input id="telp" placeholder="No Telepon (WA aktif)">
 	  <small>Wajib isi alamat lengkap</small>
 	</div>
 
@@ -1039,18 +1041,30 @@ app.post("/order", (req, res) => {
 	/* ================= CHECKOUT ================= */
 
 	function checkout() {
-	  const nama = document.getElementById("nama").value;
-	  const alamatSelect = document.getElementById("alamat");
-	  const alamat = alamatSelect.value;
-	  const pembayaran = document.getElementById("pembayaran").value;
-	  const alamatLengkap = document.getElementById("alamatLengkap")?.value || "";
+  const nama = document.getElementById("nama").value;
+  const alamatSelect = document.getElementById("alamat");
+  const alamat = alamatSelect.value;
+  const pembayaran = document.getElementById("pembayaran").value;
+  const alamatLengkap = document.getElementById("alamatLengkap")?.value || "";
+
+  // 🔥 TAMBAHAN
+  let noTelp = document.getElementById("noTelp").value;
+
+  if (noTelp.startsWith("08")) {
+    noTelp = "62" + noTelp.slice(1);
+  }
 	  
 	  console.log("KERANJANG:", keranjang);
 
-	  if (!nama || !alamat || !pembayaran || keranjang.length === 0) {
+	  if (!nama || !alamat || !pembayaran || !noTelp || keranjang.length === 0) {
 		alert("Lengkapi data dulu!");
 		return;
 	  }
+	  
+	  if (telp.length < 10) {
+  alert("No telepon tidak valid!");
+  return;
+}
 
 	  if ((alamat === "Pacet" || alamat === "Majalaya") && !alamatLengkap) {
 		alert("Alamat lengkap wajib diisi!");
@@ -1062,12 +1076,12 @@ app.post("/order", (req, res) => {
 	  let total = keranjang.reduce((sum, item) => sum + item.harga, 0);
 	  total += parseInt(ongkir);
 
-	  kirimOrder(nama, alamat, alamatLengkap, pembayaran, total);
+	  kirimOrder(nama, alamat, alamatLengkap, pembayaran, total, noTelp);
 	}
 
 	/* ================= KIRIM ORDER ================= */
 
-	function kirimOrder(nama, alamat, alamatLengkap, pembayaran, total) {
+	function kirimOrder(nama, telp, alamat, alamatLengkap, pembayaran, total) {
 
 	  fetch(BASE_URL + "/order", {
 		method: "POST",
@@ -1075,13 +1089,14 @@ app.post("/order", (req, res) => {
 		  "Content-Type": "application/json"
 		},
 		body: JSON.stringify({
-		  nama,
-		  items: keranjang,
-		  total,
-		  alamat,
-		  alamatLengkap,
-		  pembayaran
-		})
+  nama,
+  telp, // 🔥 ini tambahan
+  items: keranjang,
+  total,
+  alamat,
+  alamatLengkap,
+  pembayaran
+})
 	  })
 	  .then(res => {
 		if (!res.ok) throw new Error("Server error");
@@ -1322,13 +1337,18 @@ app.post("/order", (req, res) => {
 			div.className = "card";
 
 			div.innerHTML = `
-			  <b>A${String(o.antrian).padStart(3,"0")}</b><br>
-			  ${o.nama}<br>
-			  📍 ${o.alamat}<br>
-			  🏠 ${o.alamat_lengkap || "-"}<br>
-			  💰 Rp ${o.total}<br>
-			  <b>Status: ${o.status}</b>
-			`;
+  <b>A${String(o.antrian).padStart(3,"0")}</b><br>
+  ${o.nama}<br>
+  📞 ${o.no_telp || "-"}<br>
+  📍 ${o.alamat}<br>
+  🏠 ${o.alamat_lengkap || "-"}<br>
+  💰 Rp ${o.total}<br>
+  <b>Status: ${o.status}</b><br><br>
+
+  <a href="https://wa.me/${o.no_telp}" target="_blank">
+    <button style="background:#25D366;">💬 Chat Customer</button>
+  </a>
+`;
 
 			container.appendChild(div);
 		  });
