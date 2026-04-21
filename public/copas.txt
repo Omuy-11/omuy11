@@ -74,15 +74,12 @@
 app.post("/order", (req, res) => {
   const { nama, telp, items, total, alamat, alamatLengkap, pembayaran } = req.body;
 
-  // 🔥 STEP 8 DI SINI
+  // 🔥 STEP 8
   if (!telp) {
     return res.status(400).json({ error: "No telp wajib!" });
   }
 
-  // lanjut ke cek stock
-  db.query("SELECT * FROM stocks", (err, stocks) => {
-
-  // 🔥 1. CEK STOCK DULU
+  // 🔥 CEK STOCK
   db.query("SELECT * FROM stocks", (err, stocks) => {
 
     if (err) {
@@ -91,7 +88,6 @@ app.post("/order", (req, res) => {
 
     for (let item of items) {
       let s = stocks.find(x => x.nama === item.nama);
-
       let jumlahDiOrder = items.filter(i => i.nama === item.nama).length;
 
       if (!s || s.jumlah < jumlahDiOrder) {
@@ -99,7 +95,7 @@ app.post("/order", (req, res) => {
       }
     }
 
-    // 🔥 2. KURANGI STOCK
+    // 🔥 KURANGI STOCK
     items.forEach(item => {
       db.query(
         "UPDATE stocks SET jumlah = GREATEST(jumlah - 1, 0) WHERE nama = ?",
@@ -107,31 +103,26 @@ app.post("/order", (req, res) => {
       );
     });
 
-    // 🔥 3. BARU INSERT ORDER
+    // 🔥 INSERT ORDER
     db.query("SELECT MAX(antrian) AS last FROM orders", (err, result) => {
-
-      if (err) {
-        return res.status(500).json({ error: "DB error (select)" });
-      }
 
       let last = result[0]?.last || 0;
       let nextAntrian = parseInt(last) + 1;
 
       db.query(
-  "INSERT INTO orders (nama, telp, items, total, alamat, alamat_lengkap, pembayaran, antrian, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO orders (nama, telp, items, total, alamat, alamat_lengkap, pembayaran, antrian, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
         [
-  nama,
-  telp,
-  JSON.stringify(items),
-  total,
-  alamat,
-  alamatLengkap,
-  pembayaran,
-  nextAntrian,
-  "Menunggu"
-],
+          nama,
+          telp,
+          JSON.stringify(items),
+          total,
+          alamat,
+          alamatLengkap,
+          pembayaran,
+          nextAntrian,
+          "Menunggu"
+        ],
         (err2, result2) => {
-
           if (err2) {
             return res.status(500).json({ error: "DB error (insert)" });
           }
@@ -142,7 +133,6 @@ app.post("/order", (req, res) => {
           });
         }
       );
-
     });
 
   });
