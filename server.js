@@ -52,7 +52,8 @@ app.post("/login", (req, res) => {
 });
 
 // 🔥 MIDDLEWARE AUTH
-function auth(req, res, next) {
+
+
   const token = req.headers["authorization"];
 
   if (!token || !sessions[token]) {
@@ -146,6 +147,23 @@ app.delete("/order/:id", auth, (req, res) => {
     }
   );
 });
+
+function auth(req, res, next) {
+  let token = req.headers["authorization"];
+
+  if (!token) return res.status(401).json({ error: "Unauthorized" });
+
+  // support "Bearer xxx"
+  if (token.startsWith("Bearer ")) {
+    token = token.slice(7);
+  }
+
+  if (!sessions[token]) {
+    return res.status(401).json({ error: "Invalid token" });
+  }
+
+  next();
+}
 
 /* ================= PORT ================= */
 

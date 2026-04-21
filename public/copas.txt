@@ -1328,3 +1328,174 @@ logistik.html
 <script src="script.js"></script>
 </body>
 </html>
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>Stock</title>
+<link rel="stylesheet" href="style.css">
+
+<style>
+.stok-habis { color: red; font-weight: bold; }
+.stok-sedikit { color: orange; font-weight: bold; }
+.stok-banyak { color: green; font-weight: bold; }
+</style>
+
+</head>
+
+<body onload="cekLogin(); loadStock();">
+
+<div class="container">
+
+<button onclick="window.location='menu.html'" style="background:#64748b;">
+  ⬅️ Kembali
+</button>
+
+<h2>📦 Manajemen Stock</h2>
+
+<!-- OPTIONAL: TAMBAH AWAL -->
+<input id="namaStock" placeholder="Nama Barang">
+<input id="jumlahStock" type="number" placeholder="Jumlah Awal">
+
+<button onclick="tambahStock()">Tambah Barang</button>
+
+<hr style="margin:20px 0;">
+
+<div id="listStock"></div>
+
+</div>
+
+<script>
+
+const BASE_URL = "https://omuy11-production.up.railway.app";
+
+/* ================= SECURITY ================= */
+function escapeHTML(str) {
+  return str.replace(/[&<>"']/g, function(m) {
+    return ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      "\"": "&quot;",
+      "'": "&#039;"
+    })[m];
+  });
+}
+
+/* ================= LOAD ================= */
+function loadStock() {
+  fetch(BASE_URL + "/stocks")
+    .then(res => res.json())
+    .then(data => {
+
+      const container = document.getElementById("listStock");
+      container.innerHTML = "";
+
+      if (!data || data.length === 0) {
+        container.innerHTML = "<p>Belum ada stock</p>";
+        return;
+      }
+
+      data.forEach(s => {
+
+        let warna = "stok-banyak";
+        let text = "Stok: " + s.jumlah;
+
+        if (s.jumlah <= 0) {
+          warna = "stok-habis";
+          text = "❌ HABIS";
+        } else if (s.jumlah <= 3) {
+          warna = "stok-sedikit";
+          text = "⚠️ Sisa " + s.jumlah;
+        }
+
+        const div = document.createElement("div");
+        div.className = "card";
+
+        div.innerHTML = `
+          <b>${escapeHTML(s.nama)}</b><br>
+          <span class="${warna}">${text}</span><br><br>
+
+          <div style="display:flex; gap:5px;">
+            <button onclick="updateStock('${s.nama}', 1)">➕</button>
+            <button onclick="updateStock('${s.nama}', -1)">➖</button>
+          </div>
+
+          <br>
+          <button onclick="hapusStock(${s.id})" style="background:red;">Hapus</button>
+        `;
+
+        container.appendChild(div);
+      });
+
+    })
+    .catch(err => {
+      console.error("ERROR STOCK:", err);
+    });
+}
+
+/* ================= TAMBAH BARANG ================= */
+function tambahStock() {
+  const nama = document.getElementById("namaStock").value.trim();
+  const jumlah = parseInt(document.getElementById("jumlahStock").value);
+
+  if (!nama || isNaN(jumlah) || jumlah <= 0) {
+    alert("Isi nama & jumlah dulu!");
+    return;
+  }
+
+  const token = localStorage.getItem("token");
+
+  fetch(BASE_URL + "/stocks", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer " + token
+    },
+    body: JSON.stringify({ nama, jumlah })
+  })
+  .then(() => {
+    document.getElementById("namaStock").value = "";
+    document.getElementById("jumlahStock").value = "";
+    loadStock();
+  });
+}
+
+/* ================= UPDATE (➕➖) ================= */
+function updateStock(nama, jumlah) {
+  const token = localStorage.getItem("token");
+
+  if (jumlah < 0) {
+    const ok = confirm("Kurangi stok?");
+    if (!ok) return;
+  }
+
+  fetch(BASE_URL + "/stocks/update", {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer " + token
+    },
+    body: JSON.stringify({ nama, jumlah })
+  })
+  .then(() => loadStock());
+}
+
+/* ================= HAPUS ================= */
+function hapusStock(id) {
+  const token = localStorage.getItem("token");
+
+  fetch(BASE_URL + "/stocks/" + id, {
+    method: "DELETE",
+    headers: {
+      "Authorization": "Bearer " + token
+    }
+  })
+  .then(() => loadStock());
+}
+
+</script>
+
+</body>
+</html>
