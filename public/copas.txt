@@ -1403,12 +1403,49 @@ logistik.html
 
 stock.html
 
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manajemen Stock</title>
+<link rel="stylesheet" href="style.css">
+
+<style>
+.stok-banyak { color: #22c55e; font-weight: bold; }
+.stok-sedikit { color: #f59e0b; font-weight: bold; }
+.stok-habis { color: #ef4444; font-weight: bold; }
+</style>
+</head>
+
+<body onload="loadStock()">
+
+<div class="container">
+
+<button onclick="window.location='menu.html'" style="background:#64748b; margin-bottom:10px;">
+  ⬅️ Kembali
+</button>
+
+<h2>📦 Manajemen Stock</h2>
+
+<input id="namaStock" placeholder="Nama Barang">
+<input id="jumlahStock" type="number" placeholder="Jumlah">
+
+<button onclick="tambahStock()">Tambah Stock</button>
+
+<br><br>
+
+<div id="listStock"></div>
+
+</div>
+
 <script>
 
 const BASE_URL = "https://omuy11-production.up.railway.app";
 
+/* ================= AMAN HTML ================= */
 function escapeHTML(str) {
-  return str.replace(/[&<>"']/g, function(m) {
+  return String(str).replace(/[&<>"']/g, function(m) {
     return ({
       "&": "&amp;",
       "<": "&lt;",
@@ -1419,6 +1456,7 @@ function escapeHTML(str) {
   });
 }
 
+/* ================= LOAD STOCK ================= */
 function loadStock() {
   fetch(BASE_URL + "/stocks")
     .then(res => res.json())
@@ -1442,7 +1480,8 @@ function loadStock() {
         if (s.jumlah <= 0) {
           warna = "stok-habis";
           text = "❌ HABIS";
-        } else if (s.jumlah <= 3) {
+        } 
+        else if (s.jumlah <= 3) {
           warna = "stok-sedikit";
           text = "⚠️ Sisa " + s.jumlah;
         }
@@ -1470,6 +1509,7 @@ function loadStock() {
     .catch(err => console.error("ERROR STOCK:", err));
 }
 
+/* ================= TAMBAH ================= */
 function tambahStock() {
   const nama = document.getElementById("namaStock").value.trim();
   const jumlah = parseInt(document.getElementById("jumlahStock").value);
@@ -1489,13 +1529,20 @@ function tambahStock() {
     },
     body: JSON.stringify({ nama, jumlah })
   })
-  .then(() => {
+  .then(res => {
+    if (res.status === 401) {
+      alert("Harus login dulu!");
+      window.location = "login.html";
+      return;
+    }
+
     document.getElementById("namaStock").value = "";
     document.getElementById("jumlahStock").value = "";
     loadStock();
   });
 }
 
+/* ================= UPDATE ================= */
 function updateStock(nama, jumlah) {
   const token = localStorage.getItem("token");
 
@@ -1507,9 +1554,17 @@ function updateStock(nama, jumlah) {
     },
     body: JSON.stringify({ nama, jumlah })
   })
-  .then(() => loadStock());
+  .then(res => {
+    if (res.status === 401) {
+      alert("Harus login dulu!");
+      window.location = "login.html";
+      return;
+    }
+    loadStock();
+  });
 }
 
+/* ================= HAPUS ================= */
 function hapusStock(id) {
   const token = localStorage.getItem("token");
 
@@ -1519,7 +1574,17 @@ function hapusStock(id) {
       "Authorization": "Bearer " + token
     }
   })
-  .then(() => loadStock());
+  .then(res => {
+    if (res.status === 401) {
+      alert("Harus login dulu!");
+      window.location = "login.html";
+      return;
+    }
+    loadStock();
+  });
 }
 
 </script>
+
+</body>
+</html>
