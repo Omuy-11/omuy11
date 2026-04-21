@@ -382,7 +382,7 @@ function loadLogistik() {
         div.innerHTML = `
   <b>A${String(o.antrian).padStart(3,"0")}</b><br>
   ${o.nama}<br>
-  📞 ${o.no_telp || "-"}<br>
+  📞 ${o.telp || "-"}<br>
   📍 ${o.alamat}<br>
   🏠 ${o.alamat_lengkap || "-"}<br>
   💰 Rp ${o.total}<br>
