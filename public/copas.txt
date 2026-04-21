@@ -725,231 +725,259 @@ app.post("/order", (req, res) => {
 
 	/* ================= GLOBAL ================= */
 
-	body {
-	  font-family: 'Segoe UI', sans-serif;
-	  background: #f8fafc;
-	  margin: 0;
-	  padding: 0;
-	}
+body {
+  font-family: 'Segoe UI', sans-serif;
+  background: #f8fafc;
+  margin: 0;
+  padding: 0;
+}
 
-	/* ================= CONTAINER ================= */
+/* ================= CONTAINER ================= */
 
-	.container {
-	  max-width: 500px;
-	  margin: auto;
-	  padding: 20px;
-	}
+.container {
+  max-width: 500px;
+  margin: auto;
+  padding: 20px;
+}
 
-	/* ================= CARD ================= */
+/* ================= CARD ================= */
 
-	.card {
-	  background: white;
-	  border-radius: 18px;
-	  padding: 15px;
-	  margin-bottom: 15px;
-	  box-shadow: 0 10px 25px rgba(0,0,0,0.05);
-	  transition: 0.2s;
-	}
+.card {
+  background: white;
+  border-radius: 18px;
+  padding: 12px;
+  margin-bottom: 15px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+  transition: 0.2s;
+  overflow: hidden; /* 🔥 biar zoom gambar rapi */
+}
 
-	.card:hover {
-	  transform: translateY(-3px);
-	  box-shadow: 0 15px 30px rgba(0,0,0,0.08);
-	}
+.card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 15px 30px rgba(0,0,0,0.08);
+}
 
-	.card img {
-	  width: 100%;
-	  height: 120px;
-	  object-fit: cover;
-	  border-radius: 12px;
-	}
+.card img {
+  width: 100%;
+  height: 150px;
+  object-fit: cover;
+  border-radius: 12px;
+  transition: 0.3s;
+}
 
-	.card h3 {
-	  margin: 8px 0 4px;
-	}
+.card:hover img {
+  transform: scale(1.05);
+}
 
-	.card p {
-	  margin: 0;
-	  color: #666;
-	}
+.card h3 {
+  margin: 8px 0 4px;
+}
 
-	/* ================= BUTTON ================= */
+.card p {
+  margin: 4px 0;
+  color: #666;
+  font-size: 14px;
+}
 
-	button {
-	  border: none;
-	  border-radius: 12px;
-	  padding: 10px;
-	  cursor: pointer;
-	  font-weight: bold;
-	  transition: 0.2s;
-	  width: 100%;
-	  background: #22c55e;
-	  color: white;
-	}
+/* ================= BUTTON ================= */
 
-	button:hover {
-	  opacity: 0.9;
-	}
+button {
+  border: none;
+  border-radius: 12px;
+  padding: 10px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: 0.2s;
+  width: 100%;
+  background: #22c55e;
+  color: white;
+}
 
-	button:active {
-	  transform: scale(0.96);
-	}
+button:hover {
+  opacity: 0.9;
+}
 
-	/* ================= STATUS ================= */
+button:active {
+  transform: scale(0.96);
+}
 
-	.status {
-	  margin-top: 10px;
-	  padding: 8px;
-	  border-radius: 10px;
-	  font-size: 12px;
-	  font-weight: bold;
-	  text-align: center;
-	}
+button:disabled {
+  background: #94a3b8;
+  cursor: not-allowed;
+}
 
-	.menunggu { background: #fef3c7; color: #92400e; }
-	.diproses { background: #dbeafe; color: #1e40af; }
-	.diantar { background: #ede9fe; color: #5b21b6; }
-	.selesai { background: #dcfce7; color: #166534; }
+/* ================= STATUS ================= */
 
-	/* ================= ADMIN BUTTON ================= */
+.status {
+  margin-top: 10px;
+  padding: 8px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: bold;
+  text-align: center;
+}
 
-	.status-btns {
-	  display: flex;
-	  gap: 5px;
-	  margin-top: 10px;
-	}
+.menunggu { background: #fef3c7; color: #92400e; }
+.diproses { background: #dbeafe; color: #1e40af; }
+.diantar { background: #ede9fe; color: #5b21b6; }
+.selesai { background: #dcfce7; color: #166534; }
 
-	.status-btns button {
-	  flex: 1;
-	  padding: 6px;
-	  font-size: 11px;
-	  border-radius: 8px;
-	  color: white;
-	}
+/* ================= ADMIN BUTTON ================= */
 
-	.btn-menunggu { background: #f59e0b; }
-	.btn-diproses { background: #3b82f6; }
-	.btn-diantar { background: #8b5cf6; }
-	.btn-selesai { background: #22c55e; }
+.status-btns {
+  display: flex;
+  gap: 5px;
+  margin-top: 10px;
+}
 
-	.active-status {
-	  outline: 2px solid black;
-	}
+.status-btns button {
+  flex: 1;
+  padding: 6px;
+  font-size: 11px;
+  border-radius: 8px;
+  color: white;
+}
 
-	/* ================= INPUT ================= */
+.btn-menunggu { background: #f59e0b; }
+.btn-diproses { background: #3b82f6; }
+.btn-diantar { background: #8b5cf6; }
+.btn-selesai { background: #22c55e; }
 
-	input, select {
-	  width: 100%;
-	  padding: 10px;
-	  border-radius: 10px;
-	  border: 1px solid #e5e7eb;
-	  margin-top: 8px;
-	}
+.active-status {
+  outline: 2px solid black;
+}
 
-	/* ================= QRIS BOX ================= */
+/* ================= INPUT ================= */
 
-	#qrisBox {
-	  position: fixed;
-	  top: 0;
-	  left: 0;
-	  width: 100%;
-	  height: 100%;
-	  background: rgba(0,0,0,0.5);
-	  display: none;
-	  align-items: center;
-	  justify-content: center;
-	}
+input, select, textarea {
+  width: 100%;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  margin-top: 8px;
+  font-size: 14px;
+}
 
-	#qrisBox .content {
-	  background: white;
-	  padding: 20px;
-	  border-radius: 15px;
-	  text-align: center;
-	}
+/* ================= QRIS BOX ================= */
 
-	.menu {
-	  display: grid;
-	  grid-template-columns: 1fr 1fr;
-	  gap: 10px;
-	}
+#qrisBox {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.5);
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
 
-	#keranjang li {
-	  list-style: none;
-	  padding: 10px;
-	  margin-top: 5px;
-	  background: #f1f5f9;
-	  border-radius: 10px;
-	}
+#qrisBox .content {
+  background: white;
+  padding: 20px;
+  border-radius: 15px;
+  text-align: center;
+}
 
-	h2 {
-	  margin-top: 20px;
-	}
+/* ================= MENU GRID ================= */
 
-	.total {
-	  margin-top: 10px;
-	  font-size: 16px;
-	}
+.menu {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
 
-	.footer {
-	  margin-top: 20px;
-	}
+/* ================= KERANJANG ================= */
 
-	.footer button {
-	  font-size: 16px;
-	  padding: 12px;
-	  border-radius: 14px;
-	}
+#keranjang li {
+  list-style: none;
+  padding: 10px;
+  margin-top: 5px;
+  background: #f1f5f9;
+  border-radius: 10px;
+}
 
-	.menu-admin {
-	  display: grid;
-	  grid-template-columns: 1fr 1fr;
-	  gap: 10px;
-	  margin-top: 20px;
-	}
+/* ================= TEXT ================= */
 
-	.menu-admin button {
-	  padding: 15px;
-	  font-size: 14px;
-	  border-radius: 14px;
-	}
+h2 {
+  margin-top: 20px;
+}
 
-	/* ================= ALAMAT LENGKAP ================= */
+.total {
+  margin-top: 10px;
+  font-size: 16px;
+}
 
-	#alamatLengkapBox {
-	  margin-top: 10px;
-	}
+/* ================= FOOTER ================= */
 
-	#alamatLengkap {
-	  min-height: 80px;
-	  resize: vertical;
-	  font-size: 14px;
-	}
+.footer {
+  margin-top: 20px;
+}
 
-	.alamat-box {
-	  margin-top: 10px;
-	  animation: fadeIn 0.3s ease;
-	}
+.footer button {
+  font-size: 16px;
+  padding: 12px;
+  border-radius: 14px;
+}
 
-	.alamat-box input {
-	  font-size: 14px;
-	}
+/* ================= MENU ADMIN ================= */
 
-	.alamat-box small {
-	  display: block;
-	  font-size: 11px;
-	  color: #666;
-	  margin-top: 5px;
-	}
+.menu-admin {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 20px;
+}
 
-	@keyframes fadeIn {
-	  from {
-		opacity: 0;
-		transform: translateY(-5px);
-	  }
-	  to {
-		opacity: 1;
-		transform: translateY(0);
-	  }
-	}
+.menu-admin button {
+  padding: 15px;
+  font-size: 14px;
+  border-radius: 14px;
+}
+
+/* ================= ALAMAT ================= */
+
+#alamatLengkapBox {
+  margin-top: 10px;
+}
+
+#alamatLengkap {
+  min-height: 80px;
+  resize: vertical;
+}
+
+.alamat-box {
+  margin-top: 10px;
+  animation: fadeIn 0.3s ease;
+}
+
+.alamat-box small {
+  display: block;
+  font-size: 11px;
+  color: #666;
+  margin-top: 5px;
+}
+
+/* ================= ANIMASI ================= */
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ================= STOCK TEXT ================= */
+
+#stokNormal, #stokMini {
+  font-size: 13px;
+  color: #444;
+  font-weight: bold;
+}
 
 	script.js
 

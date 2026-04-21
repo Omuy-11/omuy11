@@ -20,10 +20,11 @@ body {
 .card {
   background: white;
   border-radius: 18px;
-  padding: 15px;
+  padding: 12px;
   margin-bottom: 15px;
   box-shadow: 0 10px 25px rgba(0,0,0,0.05);
   transition: 0.2s;
+  overflow: hidden; /* 🔥 biar zoom gambar rapi */
 }
 
 .card:hover {
@@ -33,9 +34,14 @@ body {
 
 .card img {
   width: 100%;
-  height: 120px;
+  height: 150px;
   object-fit: cover;
   border-radius: 12px;
+  transition: 0.3s;
+}
+
+.card:hover img {
+  transform: scale(1.05);
 }
 
 .card h3 {
@@ -43,17 +49,9 @@ body {
 }
 
 .card p {
-  margin: 0;
-  color: #666;
-}
-
-.card p {
   margin: 4px 0;
+  color: #666;
   font-size: 14px;
-}
-
-.card {
-  padding: 12px;
 }
 
 /* ================= BUTTON ================= */
@@ -76,6 +74,11 @@ button:hover {
 
 button:active {
   transform: scale(0.96);
+}
+
+button:disabled {
+  background: #94a3b8;
+  cursor: not-allowed;
 }
 
 /* ================= STATUS ================= */
@@ -121,12 +124,13 @@ button:active {
 
 /* ================= INPUT ================= */
 
-input, select {
+input, select, textarea {
   width: 100%;
   padding: 10px;
   border-radius: 10px;
   border: 1px solid #e5e7eb;
   margin-top: 8px;
+  font-size: 14px;
 }
 
 /* ================= QRIS BOX ================= */
@@ -150,11 +154,15 @@ input, select {
   text-align: center;
 }
 
+/* ================= MENU GRID ================= */
+
 .menu {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
 }
+
+/* ================= KERANJANG ================= */
 
 #keranjang li {
   list-style: none;
@@ -163,6 +171,8 @@ input, select {
   background: #f1f5f9;
   border-radius: 10px;
 }
+
+/* ================= TEXT ================= */
 
 h2 {
   margin-top: 20px;
@@ -173,6 +183,8 @@ h2 {
   font-size: 16px;
 }
 
+/* ================= FOOTER ================= */
+
 .footer {
   margin-top: 20px;
 }
@@ -182,6 +194,8 @@ h2 {
   padding: 12px;
   border-radius: 14px;
 }
+
+/* ================= MENU ADMIN ================= */
 
 .menu-admin {
   display: grid;
@@ -196,7 +210,7 @@ h2 {
   border-radius: 14px;
 }
 
-/* ================= ALAMAT LENGKAP ================= */
+/* ================= ALAMAT ================= */
 
 #alamatLengkapBox {
   margin-top: 10px;
@@ -205,16 +219,11 @@ h2 {
 #alamatLengkap {
   min-height: 80px;
   resize: vertical;
-  font-size: 14px;
 }
 
 .alamat-box {
   margin-top: 10px;
   animation: fadeIn 0.3s ease;
-}
-
-.alamat-box input {
-  font-size: 14px;
 }
 
 .alamat-box small {
@@ -223,6 +232,8 @@ h2 {
   color: #666;
   margin-top: 5px;
 }
+
+/* ================= ANIMASI ================= */
 
 @keyframes fadeIn {
   from {
@@ -235,8 +246,10 @@ h2 {
   }
 }
 
+/* ================= STOCK TEXT ================= */
+
 #stokNormal, #stokMini {
   font-size: 13px;
   color: #444;
+  font-weight: bold;
 }
-
