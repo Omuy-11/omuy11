@@ -56,7 +56,6 @@
 <select id="pembayaran">
   <option value="">Pembayaran</option>
   <option value="COD">COD</option>
-  <option value="QRIS">QRIS</option>
 </select>
 
 <!-- STATUS -->
@@ -69,19 +68,6 @@
   <button onclick="window.open('antrian.html', '_blank')" style="background:#0ea5e9; margin-top:10px;">
     📺 Lihat Antrian
   </button>
-</div>
-
-<!-- QRIS MODAL -->
-<div id="qrisBox">
-  <div class="content">
-    <h3>QRIS</h3>
-    <p id="totalBayar"></p>
-
-    <input type="checkbox" id="konfirmasi"> Sudah bayar
-    <br><br>
-
-    <button onclick="lanjutOrder()">Kirim</button>
-  </div>
 </div>
 
 <script src="script.js"></script>

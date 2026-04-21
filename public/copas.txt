@@ -466,7 +466,9 @@ cs.html
 
 <h2>💬 Customer Service</h2>
 
-  <p>Nanti bisa isi chat / WhatsApp / dll</p>
+  <a href="https://wa.me/628xxxxxxxxxx" target="_blank">
+  <button>💬 Chat WhatsApp</button>
+</a>
 
   <button onclick="window.location='menu.html'" style="background:#64748b; margin:10px;">
   ⬅️ Kembali
@@ -492,10 +494,6 @@ index.html
 
 <h1 style="text-align:center;">🍜 Order Makanan</h1>
 <p style="text-align:center; color:#666;">Pilih menu favorit kamu</p>
-
-<button onclick="window.location='antrian.html'" style="background:#0ea5e9; margin-bottom:10px;">
-  📺 Cek Antrian Pesanan
-</button>
 
 <!-- MENU -->
 <div class="menu">
@@ -525,12 +523,20 @@ index.html
 <!-- FORM -->
 <input id="nama" placeholder="Nama">
 
+<select id="alamat">
+  <option value="">Pilih alamat</option>
+  <option value="Pacet" data-ongkir="1000">Pacet - Rp 1.000</option>
+  <option value="Majalaya" data-ongkir="2000">Majalaya - Rp 2.000</option>
 </select>
+
+<div id="alamatLengkapBox" class="alamat-box" style="display:none;">
+  <textarea id="alamatLengkap" placeholder="Desa, RT, RW, No Rumah, Patokan"></textarea>
+  <small>Wajib isi alamat lengkap</small>
+</div>
 
 <select id="pembayaran">
   <option value="">Pembayaran</option>
   <option value="COD">COD</option>
-  <option value="QRIS">QRIS</option>
 </select>
 
 <!-- STATUS -->
@@ -539,21 +545,10 @@ index.html
 <!-- BUTTON PESAN -->
 <div class="footer">
   <button onclick="checkout()">Pesan Sekarang</button>
-</div>
 
-</div>
-
-<!-- QRIS MODAL -->
-<div id="qrisBox">
-  <div class="content">
-    <h3>QRIS</h3>
-    <p id="totalBayar"></p>
-
-    <input type="checkbox" id="konfirmasi"> Sudah bayar
-    <br><br>
-
-    <button onclick="lanjutOrder()">Kirim</button>
-  </div>
+  <button onclick="window.open('antrian.html', '_blank')" style="background:#0ea5e9; margin-top:10px;">
+    📺 Lihat Antrian
+  </button>
 </div>
 
 <script src="script.js"></script>
@@ -936,36 +931,7 @@ function checkout() {
   let total = keranjang.reduce((sum, item) => sum + item.harga, 0);
   total += parseInt(ongkir);
 
-  if (pembayaran === "QRIS") {
-    document.getElementById("qrisBox").style.display = "flex";
-    document.getElementById("totalBayar").innerText = "Total: Rp " + total;
-  } else {
-    kirimOrder(nama, alamat, alamatLengkap, pembayaran, total);
-  }
-}
-
-/* ================= QRIS ================= */
-
-function lanjutOrder() {
-  const cek = document.getElementById("konfirmasi").checked;
-  if (!cek) return alert("Konfirmasi dulu!");
-
-  const nama = document.getElementById("nama").value;
-  const alamatSelect = document.getElementById("alamat");
-  const alamat = alamatSelect.value;
-  const pembayaran = document.getElementById("pembayaran").value;
-
-  const alamatLengkap = document.getElementById("alamatLengkap")?.value || "";
-
-  const ongkir = parseInt(alamatSelect.selectedOptions[0]?.dataset.ongkir || 0);
-
-  let total = keranjang.reduce((sum, item) => sum + item.harga, 0);
-  total += parseInt(ongkir);
-
-  // ✅ INI YANG BENAR
   kirimOrder(nama, alamat, alamatLengkap, pembayaran, total);
-
-  document.getElementById("qrisBox").style.display = "none";
 }
 
 /* ================= KIRIM ORDER ================= */
@@ -998,20 +964,14 @@ function kirimOrder(nama, alamat, alamatLengkap, pembayaran, total) {
     alert("Nomor Antrian Kamu: A" + String(nomor).padStart(3, "0"));
 
     // 🔥 kirim ke logistik + alamat lengkap
-    // ❌ HAPUS window.open logistik
 
 keranjang = [];
 renderKeranjang();
 mulaiPantauStatus();
 
-// optional: redirect ke menu / reload
 setTimeout(() => {
   window.location.href = "index.html";
 }, 1000);
-
-    keranjang = [];
-    renderKeranjang();
-    mulaiPantauStatus();
   })
   .catch(err => {
     console.error("ERROR:", err);
@@ -1272,98 +1232,6 @@ menu.html
   </div>
 </div>
 
-</body>
-</html>
-
-index.html
-
-<!DOCTYPE html>
-<html lang="id">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Order App</title>
-<link rel="stylesheet" href="style.css">
-</head>
-
-<body>
-
-<div class="container">
-
-<h1 style="text-align:center;">🍜 Order Makanan</h1>
-<p style="text-align:center; color:#666;">Pilih menu favorit kamu</p>
-
-<!-- MENU -->
-<div class="menu">
-
-  <div class="card">
-    <img src="https://source.unsplash.com/300x300/?nasi">
-    <h3>Nasi Ayam</h3>
-    <p>Rp 15.000</p>
-    <button onclick="tambah('Nasi Ayam',15000)">Tambah</button>
-  </div>
-
-  <div class="card">
-    <img src="https://source.unsplash.com/300x300/?mie">
-    <h3>Mie Pedas</h3>
-    <p>Rp 12.000</p>
-    <button onclick="tambah('Mie Pedas',12000)">Tambah</button>
-  </div>
-
-</div>
-
-<!-- KERANJANG -->
-<h2>🛒 Keranjang</h2>
-<ul id="keranjang"></ul>
-
-<p class="total">Total: <b id="total">Rp 0</b></p>
-
-<!-- FORM -->
-<input id="nama" placeholder="Nama">
-
-<select id="alamat">
-  <option value="">Pilih alamat</option>
-  <option value="Pacet" data-ongkir="1000">Pacet - Rp 1.000</option>
-  <option value="Majalaya" data-ongkir="2000">Majalaya - Rp 2.000</option>
-</select>
-
-<div id="alamatLengkapBox" class="alamat-box" style="display:none;">
-  <textarea id="alamatLengkap" placeholder="Desa, RT, RW, No Rumah, Patokan"></textarea>
-  <small>Wajib isi alamat lengkap</small>
-</div>
-
-<select id="pembayaran">
-  <option value="">Pembayaran</option>
-  <option value="COD">COD</option>
-  <option value="QRIS">QRIS</option>
-</select>
-
-<!-- STATUS -->
-<div id="statusBox"></div>
-
-<!-- BUTTON PESAN -->
-<div class="footer">
-  <button onclick="checkout()">Pesan Sekarang</button>
-
-  <button onclick="window.open('antrian.html', '_blank')" style="background:#0ea5e9; margin-top:10px;">
-    📺 Lihat Antrian
-  </button>
-</div>
-
-<!-- QRIS MODAL -->
-<div id="qrisBox">
-  <div class="content">
-    <h3>QRIS</h3>
-    <p id="totalBayar"></p>
-
-    <input type="checkbox" id="konfirmasi"> Sudah bayar
-    <br><br>
-
-    <button onclick="lanjutOrder()">Kirim</button>
-  </div>
-</div>
-
-<script src="script.js"></script>
 </body>
 </html>
 

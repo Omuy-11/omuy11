@@ -84,36 +84,7 @@ function checkout() {
   let total = keranjang.reduce((sum, item) => sum + item.harga, 0);
   total += parseInt(ongkir);
 
-  if (pembayaran === "QRIS") {
-    document.getElementById("qrisBox").style.display = "flex";
-    document.getElementById("totalBayar").innerText = "Total: Rp " + total;
-  } else {
-    kirimOrder(nama, alamat, alamatLengkap, pembayaran, total);
-  }
-}
-
-/* ================= QRIS ================= */
-
-function lanjutOrder() {
-  const cek = document.getElementById("konfirmasi").checked;
-  if (!cek) return alert("Konfirmasi dulu!");
-
-  const nama = document.getElementById("nama").value;
-  const alamatSelect = document.getElementById("alamat");
-  const alamat = alamatSelect.value;
-  const pembayaran = document.getElementById("pembayaran").value;
-
-  const alamatLengkap = document.getElementById("alamatLengkap")?.value || "";
-
-  const ongkir = parseInt(alamatSelect.selectedOptions[0]?.dataset.ongkir || 0);
-
-  let total = keranjang.reduce((sum, item) => sum + item.harga, 0);
-  total += parseInt(ongkir);
-
-  // ✅ INI YANG BENAR
-  kirimOrder(nama, alamat, alamatLengkap, pembayaran, total);
-
-  document.getElementById("qrisBox").style.display = "none";
+kirimOrder(nama, alamat, alamatLengkap, pembayaran, total);
 }
 
 /* ================= KIRIM ORDER ================= */
@@ -146,20 +117,14 @@ function kirimOrder(nama, alamat, alamatLengkap, pembayaran, total) {
     alert("Nomor Antrian Kamu: A" + String(nomor).padStart(3, "0"));
 
     // 🔥 kirim ke logistik + alamat lengkap
-    // ❌ HAPUS window.open logistik
 
 keranjang = [];
 renderKeranjang();
 mulaiPantauStatus();
 
-// optional: redirect ke menu / reload
 setTimeout(() => {
   window.location.href = "index.html";
 }, 1000);
-
-    keranjang = [];
-    renderKeranjang();
-    mulaiPantauStatus();
   })
   .catch(err => {
     console.error("ERROR:", err);
