@@ -1428,7 +1428,10 @@ stock.html
 
 <h2>📦 Manajemen Stock</h2>
 
-<!-- ❌ INPUT DIHAPUS -->
+<input id="namaStock" placeholder="Nama Barang">
+<input id="jumlahStock" type="number" placeholder="Jumlah">
+
+<button onclick="tambahStock()">Tambah Stock</button>
 
 <div id="listStock"></div>
 
@@ -1534,6 +1537,41 @@ function hapusStock(id) {
     headers: {
       "Authorization": "Bearer " + token
     }
+  })
+  .then(res => {
+    if (res.status === 401) {
+      alert("Unauthorized!");
+      window.location = "login.html";
+      return;
+    }
+    loadStock();
+  });
+}
+
+function tambahStock() {
+  const nama = document.getElementById("namaStock").value;
+  const jumlah = parseInt(document.getElementById("jumlahStock").value);
+
+  const token = localStorage.getItem("token");
+
+  if (!token) {
+    alert("Harus login dulu!");
+    window.location = "login.html";
+    return;
+  }
+
+  if (!nama || isNaN(jumlah)) {
+    alert("Isi data dulu!");
+    return;
+  }
+
+  fetch(BASE_URL + "/stocks", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer " + token
+    },
+    body: JSON.stringify({ nama, jumlah })
   })
   .then(res => {
     if (res.status === 401) {
