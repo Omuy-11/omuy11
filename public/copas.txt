@@ -1403,48 +1403,10 @@ logistik.html
 
 stock.html
 
-<!DOCTYPE html>
-<html lang="id">
-<head>
-<meta charset="UTF-8">
-<title>Stock</title>
-<link rel="stylesheet" href="style.css">
-
-<style>
-.stok-habis { color: red; font-weight: bold; }
-.stok-sedikit { color: orange; font-weight: bold; }
-.stok-banyak { color: green; font-weight: bold; }
-</style>
-
-</head>
-
-<body onload="cekLogin(); loadStock();">
-
-<div class="container">
-
-<button onclick="window.location='menu.html'" style="background:#64748b;">
-  ⬅️ Kembali
-</button>
-
-<h2>📦 Manajemen Stock</h2>
-
-<!-- OPTIONAL: TAMBAH AWAL -->
-<input id="namaStock" placeholder="Nama Barang">
-<input id="jumlahStock" type="number" placeholder="Jumlah Awal">
-
-<button onclick="tambahStock()">Tambah Barang</button>
-
-<hr style="margin:20px 0;">
-
-<div id="listStock"></div>
-
-</div>
-
 <script>
 
 const BASE_URL = "https://omuy11-production.up.railway.app";
 
-/* ================= SECURITY ================= */
 function escapeHTML(str) {
   return str.replace(/[&<>"']/g, function(m) {
     return ({
@@ -1457,13 +1419,14 @@ function escapeHTML(str) {
   });
 }
 
-/* ================= LOAD ================= */
 function loadStock() {
   fetch(BASE_URL + "/stocks")
     .then(res => res.json())
     .then(data => {
 
       const container = document.getElementById("listStock");
+      if (!container) return;
+
       container.innerHTML = "";
 
       if (!data || data.length === 0) {
@@ -1504,12 +1467,9 @@ function loadStock() {
       });
 
     })
-    .catch(err => {
-      console.error("ERROR STOCK:", err);
-    });
+    .catch(err => console.error("ERROR STOCK:", err));
 }
 
-/* ================= TAMBAH BARANG ================= */
 function tambahStock() {
   const nama = document.getElementById("namaStock").value.trim();
   const jumlah = parseInt(document.getElementById("jumlahStock").value);
@@ -1536,14 +1496,8 @@ function tambahStock() {
   });
 }
 
-/* ================= UPDATE (➕➖) ================= */
 function updateStock(nama, jumlah) {
   const token = localStorage.getItem("token");
-
-  if (jumlah < 0) {
-    const ok = confirm("Kurangi stok?");
-    if (!ok) return;
-  }
 
   fetch(BASE_URL + "/stocks/update", {
     method: "PUT",
@@ -1556,7 +1510,6 @@ function updateStock(nama, jumlah) {
   .then(() => loadStock());
 }
 
-/* ================= HAPUS ================= */
 function hapusStock(id) {
   const token = localStorage.getItem("token");
 
@@ -1570,6 +1523,3 @@ function hapusStock(id) {
 }
 
 </script>
-
-</body>
-</html>
