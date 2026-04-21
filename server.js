@@ -28,8 +28,8 @@ db.getConnection((err, conn) => {
 /* ================= LOGIN ================= */
 
 const ADMIN = {
-  user: "omuy",
-  pass: "rayaa"
+  user: process.env.ADMIN_USER,
+  pass: process.env.ADMIN_PASS
 };
 
 // 🔥 SESSION SEDERHANA
@@ -72,7 +72,7 @@ function auth(req, res, next) {
 app.post("/order", (req, res) => {
   const { nama, items, total, alamat, alamatLengkap, pembayaran } = req.body;
 
-  db.query("SELECT MAX(antrian) as last FROM orders", (err, result) => {
+  db.query("antrian = result2.insertId; as last FROM orders", (err, result) => {
 
     if (err) {
       console.log("ERROR SELECT:", err);

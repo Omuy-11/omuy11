@@ -122,9 +122,6 @@ keranjang = [];
 renderKeranjang();
 mulaiPantauStatus();
 
-setTimeout(() => {
-  window.location.href = "index.html";
-}, 1000);
   })
   .catch(err => {
     console.error("ERROR:", err);
@@ -234,7 +231,7 @@ function updateStatus(id, status) {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
-      "Authorization": token
+      "Authorization": "Bearer " + token
     },
     body: JSON.stringify({ status })
   })
@@ -255,7 +252,7 @@ function hapus(id) {
   fetch(BASE_URL + "/order/" + id, {
     method: "DELETE",
     headers: {
-      "Authorization": token
+      "Authorization": "Bearer " + token
     }
   })
   .then(res => {
