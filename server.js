@@ -52,9 +52,12 @@ app.post("/login", (req, res) => {
 });
 
 // 🔥 MIDDLEWARE AUTH
+function auth(req, res, next) {
+  let token = req.headers["authorization"];
 
-
-  const token = req.headers["authorization"];
+  if (token && token.startsWith("Bearer ")) {
+    token = token.slice(7);
+  }
 
   if (!token || !sessions[token]) {
     return res.status(401).json({ error: "Unauthorized" });
@@ -80,17 +83,17 @@ app.post("/order", (req, res) => {
     let nextAntrian = parseInt(last) + 1;
 
     db.query(
-  "INSERT INTO orders (nama, items, total, alamat, alamat_lengkap, pembayaran, antrian, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-  [
-    nama,
-    JSON.stringify(items),
-    total,
-    alamat,
-    alamatLengkap,
-    pembayaran,
-    nextAntrian,
-    "Menunggu"
-  ],
+      "INSERT INTO orders (nama, items, total, alamat, alamat_lengkap, pembayaran, antrian, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+      [
+        nama,
+        JSON.stringify(items),
+        total,
+        alamat,
+        alamatLengkap,
+        pembayaran,
+        nextAntrian,
+        "Menunggu"
+      ],
       (err2, result2) => {
 
         if (err2) {
@@ -148,22 +151,76 @@ app.delete("/order/:id", auth, (req, res) => {
   );
 });
 
-function auth(req, res, next) {
-  let token = req.headers["authorization"];
+/* ================= STOCK ================= */
 
-  if (!token) return res.status(401).json({ error: "Unauthorized" });
+// GET STOCK (PUBLIC)
+app.get("/stocks", (req, res) => {
+  db.query("SELECT * FROM stocks ORDER BY id DESC", (err, results) => {
+    if (err) {
+      console.log("ERROR STOCK GET:", err);
+      return res.status(500).json({ error: "DB error" });
+    }
+    res.json(results || []);
+  });
+});
 
-  // support "Bearer xxx"
-  if (token.startsWith("Bearer ")) {
-    token = token.slice(7);
+// TAMBAH STOCK (ADMIN)
+app.post("/stocks", auth, (req, res) => {
+  const { nama, jumlah } = req.body;
+
+  // 🔥 VALIDASI DI SINI
+  if (!nama || typeof jumlah !== "number" || jumlah < 0) {
+    return res.status(400).json({ error: "Data tidak valid" });
   }
 
-  if (!sessions[token]) {
-    return res.status(401).json({ error: "Invalid token" });
+  db.query(
+    "INSERT INTO stocks (nama, jumlah) VALUES (?, ?)",
+    [nama, jumlah],
+    (err) => {
+      if (err) {
+        console.log("ERROR INSERT STOCK:", err);
+        return res.status(500).json({ error: "DB error" });
+      }
+      res.sendStatus(200);
+    }
+  );
+});
+
+// UPDATE STOCK (➕➖)
+app.put("/stocks/update", auth, (req, res) => {
+  const { nama, jumlah } = req.body;
+
+  if (!nama || typeof jumlah !== "number") {
+    return res.status(400).json({ error: "Data tidak valid" });
   }
 
-  next();
-}
+  db.query(
+    "UPDATE stocks SET jumlah = GREATEST(jumlah + ?, 0) WHERE nama = ?",
+    [jumlah, nama],
+    (err) => {
+      if (err) {
+        console.log("ERROR UPDATE STOCK:", err);
+        return res.status(500).json({ error: "DB error" });
+      }
+      res.sendStatus(200);
+    }
+  );
+});
+
+// DELETE STOCK
+app.delete("/stocks/:id", auth, (req, res) => {
+  db.query(
+    "DELETE FROM stocks WHERE id = ?",
+    [req.params.id],
+    (err) => {
+      if (err) {
+        console.log("ERROR DELETE STOCK:", err);
+        return res.status(500).json({ error: "DB error" });
+      }
+      res.sendStatus(200);
+    }
+  );
+});
 
 /* ================= PORT ================= */
 
@@ -172,3 +229,36 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log("🔥 Server jalan di port " + PORT);
 });
+
+
+admin.html
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin</title>
+<link rel="stylesheet" href="style.css">
+</head>
+
+<body onload="cekLogin()">
+
+<div class="container">
+
+<button onclick="window.location='menu.html'" style="background:#64748b; margin-bottom:10px;">
+  ⬅️ Kembali ke Menu
+</button>
+
+<h2>📦 Admin Panel</h2>
+
+<button onclick="loadOrders()">🔄 Refresh</button>
+<button onclick="logout()" style="background:red;">Logout</button>
+
+<div id="orders"></div>
+
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>

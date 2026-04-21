@@ -55,7 +55,11 @@ app.post("/login", (req, res) => {
 
 // 🔥 MIDDLEWARE AUTH
 function auth(req, res, next) {
-  const token = req.headers["authorization"];
+  let token = req.headers["authorization"];
+
+  if (token && token.startsWith("Bearer ")) {
+    token = token.slice(7);
+  }
 
   if (!token || !sessions[token]) {
     return res.status(401).json({ error: "Unauthorized" });
@@ -144,6 +148,77 @@ app.delete("/order/:id", auth, (req, res) => {
     [req.params.id],
     (err) => {
       if (err) return res.status(500).json(err);
+      res.sendStatus(200);
+    }
+  );
+});
+
+/* ================= STOCK ================= */
+
+// GET STOCK (PUBLIC)
+app.get("/stocks", (req, res) => {
+  db.query("SELECT * FROM stocks ORDER BY id DESC", (err, results) => {
+    if (err) {
+      console.log("ERROR STOCK GET:", err);
+      return res.status(500).json({ error: "DB error" });
+    }
+    res.json(results || []);
+  });
+});
+
+// TAMBAH STOCK (ADMIN)
+app.post("/stocks", auth, (req, res) => {
+  const { nama, jumlah } = req.body;
+
+  // 🔥 VALIDASI DI SINI
+  if (!nama || typeof jumlah !== "number" || jumlah < 0) {
+    return res.status(400).json({ error: "Data tidak valid" });
+  }
+
+  db.query(
+    "INSERT INTO stocks (nama, jumlah) VALUES (?, ?)",
+    [nama, jumlah],
+    (err) => {
+      if (err) {
+        console.log("ERROR INSERT STOCK:", err);
+        return res.status(500).json({ error: "DB error" });
+      }
+      res.sendStatus(200);
+    }
+  );
+});
+
+// UPDATE STOCK (➕➖)
+app.put("/stocks/update", auth, (req, res) => {
+  const { nama, jumlah } = req.body;
+
+  if (!nama || typeof jumlah !== "number") {
+    return res.status(400).json({ error: "Data tidak valid" });
+  }
+
+  db.query(
+    "UPDATE stocks SET jumlah = GREATEST(jumlah + ?, 0) WHERE nama = ?",
+    [jumlah, nama],
+    (err) => {
+      if (err) {
+        console.log("ERROR UPDATE STOCK:", err);
+        return res.status(500).json({ error: "DB error" });
+      }
+      res.sendStatus(200);
+    }
+  );
+});
+
+// DELETE STOCK
+app.delete("/stocks/:id", auth, (req, res) => {
+  db.query(
+    "DELETE FROM stocks WHERE id = ?",
+    [req.params.id],
+    (err) => {
+      if (err) {
+        console.log("ERROR DELETE STOCK:", err);
+        return res.status(500).json({ error: "DB error" });
+      }
       res.sendStatus(200);
     }
   );
@@ -1328,6 +1403,8 @@ logistik.html
 <script src="script.js"></script>
 </body>
 </html>
+
+stock.html
 
 <!DOCTYPE html>
 <html lang="id">
