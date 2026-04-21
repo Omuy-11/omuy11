@@ -72,7 +72,7 @@ function auth(req, res, next) {
 app.post("/order", (req, res) => {
   const { nama, items, total, alamat, alamatLengkap, pembayaran } = req.body;
 
-  db.query("antrian = result2.insertId; as last FROM orders", (err, result) => {
+  db.query("SELECT MAX(antrian) AS last FROM orders", (err, result) => {
 
     if (err) {
       console.log("ERROR SELECT:", err);
@@ -229,36 +229,3 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log("🔥 Server jalan di port " + PORT);
 });
-
-
-admin.html
-
-<!DOCTYPE html>
-<html lang="id">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Admin</title>
-<link rel="stylesheet" href="style.css">
-</head>
-
-<body onload="cekLogin()">
-
-<div class="container">
-
-<button onclick="window.location='menu.html'" style="background:#64748b; margin-bottom:10px;">
-  ⬅️ Kembali ke Menu
-</button>
-
-<h2>📦 Admin Panel</h2>
-
-<button onclick="loadOrders()">🔄 Refresh</button>
-<button onclick="logout()" style="background:red;">Logout</button>
-
-<div id="orders"></div>
-
-</div>
-
-<script src="script.js"></script>
-</body>
-</html>

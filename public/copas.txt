@@ -74,7 +74,7 @@ function auth(req, res, next) {
 app.post("/order", (req, res) => {
   const { nama, items, total, alamat, alamatLengkap, pembayaran } = req.body;
 
-  db.query("antrian = result2.insertId; as last FROM orders", (err, result) => {
+  db.query("SELECT MAX(antrian) AS last FROM orders", (err, result) => {
 
     if (err) {
       console.log("ERROR SELECT:", err);
