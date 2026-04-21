@@ -357,3 +357,32 @@ function loadLogistik() {
 
     });
 }
+
+/* ================= LOAD STOCK KE INDEX ================= */
+
+function loadStockUser() {
+  fetch(BASE_URL + "/stocks")
+    .then(res => res.json())
+    .then(data => {
+
+      console.log("DATA STOCK:", data);
+
+      let normal = data.find(s => s.nama === "Mie Jebew Porsi Normal");
+      let mini = data.find(s => s.nama === "Mie Jebew Porsi Mini");
+
+      document.getElementById("stokNormal").innerText =
+        "Stok: " + (normal ? normal.jumlah : 0);
+
+      document.getElementById("stokMini").innerText =
+        "Stok: " + (mini ? mini.jumlah : 0);
+
+    })
+    .catch(err => console.error("ERROR STOCK USER:", err));
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  loadStockUser();
+
+  // biar realtime
+  setInterval(loadStockUser, 2000);
+});
