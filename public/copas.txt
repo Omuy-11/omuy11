@@ -956,12 +956,35 @@
 	/* ================= TAMBAH ITEM ================= */
 
 	function tambah(nama, harga) {
-	  keranjang.push({ 
-		nama, 
-		harga: parseInt(harga) // 🔥 fix utama
-	  });
-	  renderKeranjang();
-	}
+
+  // ambil stok dari tampilan
+  let stokText;
+
+  if (nama === "Mie Jebew Porsi Normal") {
+    stokText = document.getElementById("stokNormal").innerText;
+  } else if (nama === "Mie Jebew Porsi Mini") {
+    stokText = document.getElementById("stokMini").innerText;
+  }
+
+  let stok = parseInt(stokText.replace("Stok: ", "")) || 0;
+
+  // hitung jumlah item yang sama di keranjang
+  let jumlahDiKeranjang = keranjang.filter(i => i.nama === nama).length;
+
+  // 🔥 VALIDASI
+  if (jumlahDiKeranjang >= stok) {
+    alert("Stok tidak cukup!");
+    return;
+  }
+
+  // kalau aman → tambah
+  keranjang.push({ 
+    nama, 
+    harga: parseInt(harga)
+  });
+
+  renderKeranjang();
+}
 
 	/* ================= RENDER ================= */
 
@@ -1300,18 +1323,13 @@ function loadStockUser() {
       document.getElementById("stokNormal").innerText = "Stok: " + (normal?.jumlah ?? 0);
       document.getElementById("stokMini").innerText = "Stok: " + (mini?.jumlah ?? 0);
 
-      // 🔥 DISABLE BUTTON kalau habis
-      if (!normal || normal.jumlah <= 0) {
-        document.getElementById("btn-normal").disabled = true;
-      } else {
-        document.getElementById("btn-normal").disabled = false;
-      }
+      // 🔥 HITUNG YANG SUDAH DIKERANJANG
+      let jumlahNormal = keranjang.filter(i => i.nama === "Mie Jebew Porsi Normal").length;
+      let jumlahMini = keranjang.filter(i => i.nama === "Mie Jebew Porsi Mini").length;
 
-      if (!mini || mini.jumlah <= 0) {
-        document.getElementById("btn-mini").disabled = true;
-      } else {
-        document.getElementById("btn-mini").disabled = false;
-      }
+      // 🔥 DISABLE kalau stok habis ATAU sudah penuh di keranjang
+      document.getElementById("btn-normal").disabled = !normal || normal.jumlah <= jumlahNormal;
+      document.getElementById("btn-mini").disabled = !mini || mini.jumlah <= jumlahMini;
 
     });
 }
