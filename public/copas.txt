@@ -74,6 +74,14 @@
 app.post("/order", (req, res) => {
   const { nama, telp, items, total, alamat, alamatLengkap, pembayaran } = req.body;
 
+  // 🔥 STEP 8 DI SINI
+  if (!telp) {
+    return res.status(400).json({ error: "No telp wajib!" });
+  }
+
+  // lanjut ke cek stock
+  db.query("SELECT * FROM stocks", (err, stocks) => {
+
   // 🔥 1. CEK STOCK DULU
   db.query("SELECT * FROM stocks", (err, stocks) => {
 
@@ -110,7 +118,7 @@ app.post("/order", (req, res) => {
       let nextAntrian = parseInt(last) + 1;
 
       db.query(
-        "INSERT INTO orders (nama, items, total, alamat, alamat_lengkap, pembayaran, antrian, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+  "INSERT INTO orders (nama, telp, items, total, alamat, alamat_lengkap, pembayaran, antrian, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
         [
   nama,
   telp,
@@ -1048,7 +1056,7 @@ app.post("/order", (req, res) => {
   const alamatLengkap = document.getElementById("alamatLengkap")?.value || "";
 
   // 🔥 TAMBAHAN
-  let noTelp = document.getElementById("noTelp").value;
+  let noTelp = document.getElementById("telp").value;
 
   if (noTelp.startsWith("08")) {
     noTelp = "62" + noTelp.slice(1);
@@ -1061,7 +1069,7 @@ app.post("/order", (req, res) => {
 		return;
 	  }
 	  
-	  if (telp.length < 10) {
+	  if (noTelp.length < 10) {
   alert("No telepon tidak valid!");
   return;
 }
@@ -1076,7 +1084,7 @@ app.post("/order", (req, res) => {
 	  let total = keranjang.reduce((sum, item) => sum + item.harga, 0);
 	  total += parseInt(ongkir);
 
-	  kirimOrder(nama, alamat, alamatLengkap, pembayaran, total, noTelp);
+	  kirimOrder(nama, noTelp, alamat, alamatLengkap, pembayaran, total);
 	}
 
 	/* ================= KIRIM ORDER ================= */
@@ -1090,7 +1098,7 @@ app.post("/order", (req, res) => {
 		},
 		body: JSON.stringify({
   nama,
-  telp, // 🔥 ini tambahan
+  telp,
   items: keranjang,
   total,
   alamat,
@@ -1345,7 +1353,7 @@ app.post("/order", (req, res) => {
   💰 Rp ${o.total}<br>
   <b>Status: ${o.status}</b><br><br>
 
-  <a href="https://wa.me/${o.no_telp}" target="_blank">
+  <a href="https://wa.me/${o.telp}" target="_blank">
     <button style="background:#25D366;">💬 Chat Customer</button>
   </a>
 `;
@@ -1389,49 +1397,32 @@ document.addEventListener("DOMContentLoaded", () => {
 	menu.html
 
 	<!DOCTYPE html>
-	<html lang="id">
-	<head>
-	<meta charset="UTF-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>Menu</title>
-	<link rel="stylesheet" href="style.css">
-	</head>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Menu</title>
+<link rel="stylesheet" href="style.css">
+</head>
 
-	<body onload="cekLogin()">
+<body onload="cekLogin()">
 
-	<div class="container">
-	  <h2 style="text-align:center;">📋 Menu Utama</h2>
+<div class="container">
+  <h2 style="text-align:center;">📋 Menu Utama</h2>
 
-	  <div class="menu-admin">
-	  <button onclick="location='admin.html'">📦 Admin Panel</button>
-	  <button onclick="location='antrian.html?from=admin'">📺 Layar Antrian</button>
-	  <button onclick="location='cs.html'">💬 CS</button>
-	  <button onclick="location='statistik.html'">📊 Statistik</button>
-	  <button onclick="location='stock.html'">📦 Stock</button> <!-- INI -->
-	</div>
-	</div>
+  <div class="menu-admin">
+    <button onclick="location='admin.html'">📦 Admin Panel</button>
+    <button onclick="location='antrian.html?from=admin'">📺 Layar Antrian</button>
+    <button onclick="location='cs.html'">💬 CS</button>
+    <button onclick="location='statistik.html'">📊 Statistik</button>
+	<button onclick="location='logistik.html'">🚚 Logistik</button>
+<button onclick="location='stock.html'">📦 Stock</button>
+  </div>
+</div>
 
-	</body>
-	</html>
-
-	package.json
-
-	{
-	  "name": "order-app",
-	  "version": "1.0.0",
-	  "description": "simple order app",
-	  "main": "server.js",
-	  "scripts": {
-		"start": "node server.js"
-	  },
-	  "engines": {
-		"node": "18.x"
-	  },
-	  "dependencies": {
-		"express": "^4.18.2",
-		"mysql2": "^3.21.1"
-	  }
-	}
+<script src="script.js"></script>
+</body>
+</html>
 
 	privacy.html
 

@@ -91,7 +91,7 @@ function checkout() {
   const alamatLengkap = document.getElementById("alamatLengkap")?.value || "";
 
   // 🔥 TAMBAHAN
-  let noTelp = document.getElementById("noTelp").value;
+  let noTelp = document.getElementById("telp").value;
 
   if (noTelp.startsWith("08")) {
     noTelp = "62" + noTelp.slice(1);
@@ -104,7 +104,7 @@ function checkout() {
     return;
   }
   
-  if (telp.length < 10) {
+  if (noTelp.length < 10) {
   alert("No telepon tidak valid!");
   return;
 }
@@ -119,7 +119,7 @@ function checkout() {
   let total = keranjang.reduce((sum, item) => sum + item.harga, 0);
   total += parseInt(ongkir);
 
-kirimOrder(nama, alamat, alamatLengkap, pembayaran, total, noTelp);
+kirimOrder(nama, noTelp, alamat, alamatLengkap, pembayaran, total);
 }
 
 /* ================= KIRIM ORDER ================= */
@@ -388,7 +388,7 @@ function loadLogistik() {
   💰 Rp ${o.total}<br>
   <b>Status: ${o.status}</b><br><br>
 
-  <a href="https://wa.me/${o.no_telp}" target="_blank">
+  <a href="https://wa.me/${o.telp}" target="_blank">
     <button style="background:#25D366;">💬 Chat Customer</button>
   </a>
 `;

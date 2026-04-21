@@ -72,6 +72,14 @@ function auth(req, res, next) {
 app.post("/order", (req, res) => {
   const { nama, telp, items, total, alamat, alamatLengkap, pembayaran } = req.body;
 
+  // 🔥 STEP 8 DI SINI
+  if (!telp) {
+    return res.status(400).json({ error: "No telp wajib!" });
+  }
+
+  // lanjut ke cek stock
+  db.query("SELECT * FROM stocks", (err, stocks) => {
+
   // 🔥 1. CEK STOCK DULU
   db.query("SELECT * FROM stocks", (err, stocks) => {
 
@@ -108,7 +116,7 @@ app.post("/order", (req, res) => {
       let nextAntrian = parseInt(last) + 1;
 
       db.query(
-        "INSERT INTO orders (nama, items, total, alamat, alamat_lengkap, pembayaran, antrian, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+  "INSERT INTO orders (nama, items, total, alamat, alamat_lengkap, pembayaran, antrian, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
         [
   nama,
   telp,
