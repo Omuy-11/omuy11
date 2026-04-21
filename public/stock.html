@@ -23,6 +23,11 @@
 
 <h2>📦 Manajemen Stock</h2>
 
+<input id="namaStock" placeholder="Nama Barang">
+<input id="jumlahStock" type="number" placeholder="Jumlah">
+
+<button onclick="tambahStock()">Tambah Stock</button>
+
 <div id="listStock"></div>
 
 </div>
@@ -31,6 +36,7 @@
 
 const BASE_URL = "https://omuy11-production.up.railway.app";
 
+/* ================= LOAD STOCK ================= */
 function loadStock() {
   fetch(BASE_URL + "/stocks")
     .then(res => res.json())
@@ -54,7 +60,8 @@ function loadStock() {
         if (s.jumlah <= 0) {
           warna = "stok-habis";
           text = "❌ HABIS";
-        } else if (s.jumlah <= 3) {
+        } 
+        else if (s.jumlah <= 3) {
           warna = "stok-sedikit";
           text = "⚠️ Sisa " + s.jumlah;
         }
@@ -79,9 +86,10 @@ function loadStock() {
       });
 
     })
-    .catch(err => console.error(err));
+    .catch(err => console.error("ERROR STOCK:", err));
 }
 
+/* ================= UPDATE ================= */
 function updateStock(nama, jumlah) {
   const token = localStorage.getItem("token");
 
@@ -99,9 +107,17 @@ function updateStock(nama, jumlah) {
     },
     body: JSON.stringify({ nama, jumlah })
   })
-  .then(() => loadStock());
+  .then(res => {
+    if (res.status === 401) {
+      alert("Unauthorized!");
+      window.location = "login.html";
+      return;
+    }
+    loadStock();
+  });
 }
 
+/* ================= HAPUS ================= */
 function hapusStock(id) {
   const token = localStorage.getItem("token");
 
@@ -117,7 +133,49 @@ function hapusStock(id) {
       "Authorization": "Bearer " + token
     }
   })
-  .then(() => loadStock());
+  .then(res => {
+    if (res.status === 401) {
+      alert("Unauthorized!");
+      window.location = "login.html";
+      return;
+    }
+    loadStock();
+  });
+}
+
+function tambahStock() {
+  const nama = document.getElementById("namaStock").value;
+  const jumlah = parseInt(document.getElementById("jumlahStock").value);
+
+  const token = localStorage.getItem("token");
+
+  if (!token) {
+    alert("Harus login dulu!");
+    window.location = "login.html";
+    return;
+  }
+
+  if (!nama || isNaN(jumlah)) {
+    alert("Isi data dulu!");
+    return;
+  }
+
+  fetch(BASE_URL + "/stocks", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer " + token
+    },
+    body: JSON.stringify({ nama, jumlah })
+  })
+  .then(res => {
+    if (res.status === 401) {
+      alert("Unauthorized!");
+      window.location = "login.html";
+      return;
+    }
+    loadStock();
+  });
 }
 
 </script>
