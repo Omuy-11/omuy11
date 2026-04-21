@@ -47,6 +47,15 @@ body {
   color: #666;
 }
 
+.card p {
+  margin: 4px 0;
+  font-size: 14px;
+}
+
+.card {
+  padding: 12px;
+}
+
 /* ================= BUTTON ================= */
 
 button {
@@ -224,5 +233,10 @@ h2 {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+#stokNormal, #stokMini {
+  font-size: 13px;
+  color: #444;
 }
 

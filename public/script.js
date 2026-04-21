@@ -365,24 +365,30 @@ function loadStockUser() {
     .then(res => res.json())
     .then(data => {
 
-      console.log("DATA STOCK:", data);
-
       let normal = data.find(s => s.nama === "Mie Jebew Porsi Normal");
       let mini = data.find(s => s.nama === "Mie Jebew Porsi Mini");
 
-      document.getElementById("stokNormal").innerText =
-        "Stok: " + (normal ? normal.jumlah : 0);
+      // tampilkan stok
+      document.getElementById("stokNormal").innerText = "Stok: " + (normal?.jumlah ?? 0);
+      document.getElementById("stokMini").innerText = "Stok: " + (mini?.jumlah ?? 0);
 
-      document.getElementById("stokMini").innerText =
-        "Stok: " + (mini ? mini.jumlah : 0);
+      // 🔥 DISABLE BUTTON kalau habis
+      if (!normal || normal.jumlah <= 0) {
+        document.getElementById("btn-normal").disabled = true;
+      } else {
+        document.getElementById("btn-normal").disabled = false;
+      }
 
-    })
-    .catch(err => console.error("ERROR STOCK USER:", err));
+      if (!mini || mini.jumlah <= 0) {
+        document.getElementById("btn-mini").disabled = true;
+      } else {
+        document.getElementById("btn-mini").disabled = false;
+      }
+
+    });
 }
 
 document.addEventListener("DOMContentLoaded", () => {
   loadStockUser();
-
-  // biar realtime
   setInterval(loadStockUser, 2000);
 });
