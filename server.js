@@ -72,41 +72,68 @@ function auth(req, res, next) {
 app.post("/order", (req, res) => {
   const { nama, items, total, alamat, alamatLengkap, pembayaran } = req.body;
 
-  db.query("SELECT MAX(antrian) AS last FROM orders", (err, result) => {
+  // 🔥 1. CEK STOCK DULU
+  db.query("SELECT * FROM stocks", (err, stocks) => {
 
     if (err) {
-      console.log("ERROR SELECT:", err);
-      return res.status(500).json({ error: "DB error (select)" });
+      return res.status(500).json({ error: "DB error" });
     }
 
-    let last = result[0]?.last || 0;
-    let nextAntrian = parseInt(last) + 1;
+    for (let item of items) {
+      let s = stocks.find(x => x.nama === item.nama);
 
-    db.query(
-      "INSERT INTO orders (nama, items, total, alamat, alamat_lengkap, pembayaran, antrian, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-      [
-        nama,
-        JSON.stringify(items),
-        total,
-        alamat,
-        alamatLengkap,
-        pembayaran,
-        nextAntrian,
-        "Menunggu"
-      ],
-      (err2, result2) => {
+      let jumlahDiOrder = items.filter(i => i.nama === item.nama).length;
 
-        if (err2) {
-          console.log("ERROR INSERT:", err2);
-          return res.status(500).json({ error: "DB error (insert)" });
-        }
-
-        res.json({
-          id: result2.insertId,
-          antrian: nextAntrian
-        });
+      if (!s || s.jumlah < jumlahDiOrder) {
+        return res.status(400).json({ error: "Stock tidak cukup!" });
       }
-    );
+    }
+
+    // 🔥 2. KURANGI STOCK
+    items.forEach(item => {
+      db.query(
+        "UPDATE stocks SET jumlah = GREATEST(jumlah - 1, 0) WHERE nama = ?",
+        [item.nama]
+      );
+    });
+
+    // 🔥 3. BARU INSERT ORDER
+    db.query("SELECT MAX(antrian) AS last FROM orders", (err, result) => {
+
+      if (err) {
+        return res.status(500).json({ error: "DB error (select)" });
+      }
+
+      let last = result[0]?.last || 0;
+      let nextAntrian = parseInt(last) + 1;
+
+      db.query(
+        "INSERT INTO orders (nama, items, total, alamat, alamat_lengkap, pembayaran, antrian, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        [
+          nama,
+          JSON.stringify(items),
+          total,
+          alamat,
+          alamatLengkap,
+          pembayaran,
+          nextAntrian,
+          "Menunggu"
+        ],
+        (err2, result2) => {
+
+          if (err2) {
+            return res.status(500).json({ error: "DB error (insert)" });
+          }
+
+          res.json({
+            id: result2.insertId,
+            antrian: nextAntrian
+          });
+        }
+      );
+
+    });
+
   });
 });
 
