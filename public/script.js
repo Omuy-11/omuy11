@@ -1,9 +1,19 @@
 let keranjang = [];
 let currentOrderId = null;
 
-const BASE_URL = "https://omuy11-production.up.railway.app";
+/* =================================================
+   🔥 BASE CONFIG (DEV / PROD AUTO DETECT)
+================================================= */
 
-  /* ================= ALAMAT TOGGLE ================= */
+const IS_LOCAL = window.location.hostname === "localhost";
+
+const BASE_URL = IS_LOCAL 
+  ? "http://localhost:3000"
+  : "https://omuy11-production.up.railway.app";
+
+/* =================================================
+   ALAMAT TOGGLE
+================================================= */
 
 document.addEventListener("DOMContentLoaded", () => {
   const alamatSelect = document.getElementById("alamat");
@@ -25,40 +35,40 @@ document.addEventListener("DOMContentLoaded", () => {
   toggleAlamat();
 });
 
-/* ================= TAMBAH ITEM ================= */
+/* =================================================
+   TAMBAH ITEM
+================================================= */
 
 function tambah(nama, harga) {
 
-  // ambil stok dari tampilan
   let stokText;
 
   if (nama === "Mie Jebew Porsi Normal") {
-    stokText = document.getElementById("stokNormal").innerText;
+    stokText = document.getElementById("stokNormal")?.innerText;
   } else if (nama === "Mie Jebew Porsi Mini") {
-    stokText = document.getElementById("stokMini").innerText;
+    stokText = document.getElementById("stokMini")?.innerText;
   }
 
-  let stok = parseInt(stokText.replace("Stok: ", "")) || 0;
+  let stok = parseInt((stokText || "").replace("Stok: ", "")) || 0;
 
-  // hitung jumlah item yang sama di keranjang
   let jumlahDiKeranjang = keranjang.filter(i => i.nama === nama).length;
 
-  // 🔥 VALIDASI
   if (jumlahDiKeranjang >= stok) {
     alert("Stok tidak cukup!");
     return;
   }
 
-  // kalau aman → tambah
-  keranjang.push({ 
-    nama, 
+  keranjang.push({
+    nama,
     harga: parseInt(harga)
   });
 
   renderKeranjang();
 }
 
-/* ================= RENDER ================= */
+/* =================================================
+   RENDER KERANJANG
+================================================= */
 
 function renderKeranjang() {
   const list = document.getElementById("keranjang");
@@ -78,10 +88,12 @@ function renderKeranjang() {
     list.appendChild(li);
   });
 
-  totalEl.innerText = "Rp " + total; // 🔥 ini yang kamu hilangin tadi
+  totalEl.innerText = "Rp " + total;
 }
 
-/* ================= CHECKOUT ================= */
+/* =================================================
+   CHECKOUT
+================================================= */
 
 function checkout() {
   const nama = document.getElementById("nama").value;
@@ -90,24 +102,21 @@ function checkout() {
   const pembayaran = document.getElementById("pembayaran").value;
   const alamatLengkap = document.getElementById("alamatLengkap")?.value || "";
 
-  // 🔥 TAMBAHAN
   let noTelp = document.getElementById("telp").value;
 
   if (noTelp.startsWith("08")) {
     noTelp = "62" + noTelp.slice(1);
   }
-  
-  console.log("KERANJANG:", keranjang);
 
   if (!nama || !alamat || !pembayaran || !noTelp || keranjang.length === 0) {
     alert("Lengkapi data dulu!");
     return;
   }
-  
+
   if (noTelp.length < 10) {
-  alert("No telepon tidak valid!");
-  return;
-}
+    alert("No telepon tidak valid!");
+    return;
+  }
 
   if ((alamat === "Pacet" || alamat === "Majalaya") && !alamatLengkap) {
     alert("Alamat lengkap wajib diisi!");
@@ -119,10 +128,12 @@ function checkout() {
   let total = keranjang.reduce((sum, item) => sum + item.harga, 0);
   total += parseInt(ongkir);
 
-kirimOrder(nama, noTelp, alamat, alamatLengkap, pembayaran, total);
+  kirimOrder(nama, noTelp, alamat, alamatLengkap, pembayaran, total);
 }
 
-/* ================= KIRIM ORDER ================= */
+/* =================================================
+   KIRIM ORDER (DEV SAFE MODE ACTIVE)
+================================================= */
 
 function kirimOrder(nama, telp, alamat, alamatLengkap, pembayaran, total) {
 
@@ -131,41 +142,41 @@ function kirimOrder(nama, telp, alamat, alamatLengkap, pembayaran, total) {
     headers: {
       "Content-Type": "application/json"
     },
-body: JSON.stringify({
-  nama,
-  telp, // 🔥 ini tambahan
-  items: keranjang,
-  total,
-  alamat,
-  alamatLengkap,
-  pembayaran
-})
+    body: JSON.stringify({
+      nama: IS_LOCAL ? "[TEST] " + nama : nama,
+      telp,
+      items: keranjang,
+      total,
+      alamat,
+      alamatLengkap,
+      pembayaran,
+      isTest: IS_LOCAL
+    })
   })
-  .then(res => {
-    if (!res.ok) throw new Error("Server error");
-    return res.json();
-  })
-  .then(data => {
-    currentOrderId = data.id;
+    .then(res => {
+      if (!res.ok) throw new Error("Server error");
+      return res.json();
+    })
+    .then(data => {
+      currentOrderId = data.id;
 
-    let nomor = data.antrian || 0;
+      let nomor = data.antrian || 0;
 
-    alert("Nomor Antrian Kamu: A" + String(nomor).padStart(3, "0"));
+      alert("Nomor Antrian Kamu: A" + String(nomor).padStart(3, "0"));
 
-    // 🔥 kirim ke logistik + alamat lengkap
-
-keranjang = [];
-renderKeranjang();
-mulaiPantauStatus();
-
-  })
-  .catch(err => {
-    console.error("ERROR:", err);
-    alert("Gagal kirim order!");
-  });
+      keranjang = [];
+      renderKeranjang();
+      mulaiPantauStatus();
+    })
+    .catch(err => {
+      console.error("ERROR:", err);
+      alert("Gagal kirim order!");
+    });
 }
 
-/* ================= STATUS ================= */
+/* =================================================
+   STATUS MONITOR
+================================================= */
 
 let intervalStatus = null;
 
@@ -190,20 +201,17 @@ function tampilkanStatus(status) {
 
   let className = "";
 
-  if (status === "Menunggu") className = "menunggu";
-  if (status === "Diproses") className = "diproses";
-  if (status === "Diantar") className = "diantar";
-  if (status === "Selesai") className = "selesai";
+  if (status === "menunggu") className = "menunggu";
+  if (status === "diproses") className = "diproses";
+  if (status === "diantar") className = "diantar"
+  if (status === "selesai") className = "selesai";
 
   box.innerHTML = `<div class="status ${className}">${status}</div>`;
 }
 
-/* ================= ADMIN ================= */
-
-function initAdmin() {
-  loadOrders();
-  setInterval(loadOrders, 2000);
-}
+/* =================================================
+   ADMIN PANEL
+================================================= */
 
 function loadOrders() {
   fetch(BASE_URL + "/public-orders")
@@ -223,6 +231,10 @@ function loadOrders() {
       container.innerHTML = "";
 
       data.forEach(o => {
+
+        /* 🧪 FILTER TEST ORDER (AMAN LEBIH PRESISI) */
+        if (o.nama?.startsWith("[TEST]")) return;
+
         let items = [];
         try {
           items = JSON.parse(o.items || "[]");
@@ -240,10 +252,10 @@ function loadOrders() {
           Rp ${o.total}<br>
 
           <div class="status-btns">
-            <button onclick="updateStatus(${o.id}, 'Menunggu')">Menunggu</button>
-            <button onclick="updateStatus(${o.id}, 'Diproses')">Diproses</button>
-            <button onclick="updateStatus(${o.id}, 'Diantar')">Diantar</button>
-            <button onclick="updateStatus(${o.id}, 'Selesai')">Selesai</button>
+            <button onclick="updateStatus(${o.id}, 'menunggu')">menunggu</button>
+            <button onclick="updateStatus(${o.id}, 'diproses')">diproses</button>
+            <button onclick="updateStatus(${o.id}, 'diantar')">diantar</button>
+            <button onclick="updateStatus(${o.id}, 'selesai')">selesai</button>
           </div>
 
           <button onclick="hapus(${o.id})" style="background:red;">Hapus</button>
@@ -254,49 +266,9 @@ function loadOrders() {
     });
 }
 
-function updateStatus(id, status) {
-  const token = localStorage.getItem("token");
-
-  if (!token) {
-    alert("Harus login dulu!");
-    window.location = "login.html";
-    return;
-  }
-
-  fetch(BASE_URL + "/order/" + id, {
-    method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": "Bearer " + token
-    },
-    body: JSON.stringify({ status })
-  })
-  .then(res => {
-    if (res.status === 401) logout();
-  });
-}
-
-function hapus(id) {
-  const token = localStorage.getItem("token");
-
-  if (!token) {
-    alert("Harus login dulu!");
-    window.location = "login.html";
-    return;
-  }
-
-  fetch(BASE_URL + "/order/" + id, {
-    method: "DELETE",
-    headers: {
-      "Authorization": "Bearer " + token
-    }
-  })
-  .then(res => {
-    if (res.status === 401) logout();
-  });
-}
-
-/* ================= LOGIN ================= */
+/* =================================================
+   AUTH / ADMIN
+================================================= */
 
 function login() {
   const user = document.getElementById("user").value;
@@ -304,18 +276,18 @@ function login() {
 
   fetch(BASE_URL + "/login", {
     method: "POST",
-    headers: {"Content-Type":"application/json"},
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ user, pass })
   })
-  .then(res => res.json())
-  .then(data => {
-    if (data.success) {
-      localStorage.setItem("token", data.token);
-      window.location = "menu.html";
-    } else {
-      document.getElementById("msg").innerText = "Login gagal!";
-    }
-  });
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        localStorage.setItem("token", data.token);
+        window.location = "menu.html";
+      } else {
+        document.getElementById("msg").innerText = "Login gagal!";
+      }
+    });
 }
 
 function logout() {
@@ -335,18 +307,76 @@ function cekLogin() {
   initAdmin();
 }
 
-/* ================= STATISTIK ================= */
+/* =================================================
+   ADMIN INIT
+================================================= */
+
+function initAdmin() {
+  loadOrders();
+  setInterval(loadOrders, 2000);
+}
+
+/* =================================================
+   STATUS UPDATE / DELETE
+================================================= */
+
+function updateStatus(id, status) {
+  const token = localStorage.getItem("token");
+
+  if (!token) {
+    alert("Harus login dulu!");
+    window.location = "login.html";
+    return;
+  }
+
+  fetch(BASE_URL + "/order/" + id, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer " + token
+    },
+    body: JSON.stringify({ status })
+  })
+    .then(res => {
+      if (res.status === 401) logout();
+    });
+}
+
+function hapus(id) {
+  const token = localStorage.getItem("token");
+
+  if (!token) {
+    alert("Harus login dulu!");
+    window.location = "login.html";
+    return;
+  }
+
+  fetch(BASE_URL + "/order/" + id, {
+    method: "DELETE",
+    headers: {
+      "Authorization": "Bearer " + token
+    }
+  })
+    .then(res => {
+      if (res.status === 401) logout();
+    });
+}
+
+/* =================================================
+   STATISTIK
+================================================= */
 
 function loadStats() {
   fetch(BASE_URL + "/public-orders")
     .then(res => res.json())
     .then(data => {
+
       let totalOrder = data.length;
       let totalUang = data.reduce((sum, o) => sum + o.total, 0);
 
-      let selesai = data.filter(o => o.status === "Selesai").length;
-      let proses = data.filter(o => o.status === "Diproses").length;
-      let menunggu = data.filter(o => o.status === "Menunggu").length;
+      let selesai = data.filter(o => o.status === "selesai").length;
+      let proses = data.filter(o => o.status === "diproses").length;
+      let menunggu = data.filter(o => o.status === "menunggu").length;
 
       const el = document.getElementById("stats");
       if (!el) return;
@@ -362,7 +392,9 @@ function loadStats() {
     });
 }
 
-/* ================= LOGISTIK ================= */
+/* =================================================
+   LOGISTIK
+================================================= */
 
 function loadLogistik() {
   fetch(BASE_URL + "/public-orders")
@@ -380,18 +412,18 @@ function loadLogistik() {
         div.className = "card";
 
         div.innerHTML = `
-  <b>A${String(o.antrian).padStart(3,"0")}</b><br>
-  ${o.nama}<br>
-  📞 ${o.telp || "-"}<br>
-  📍 ${o.alamat}<br>
-  🏠 ${o.alamat_lengkap || "-"}<br>
-  💰 Rp ${o.total}<br>
-  <b>Status: ${o.status}</b><br><br>
+          <b>A${String(o.antrian).padStart(3,"0")}</b><br>
+          ${o.nama}<br>
+          📞 ${o.telp || "-"}<br>
+          📍 ${o.alamat}<br>
+          🏠 ${o.alamat_lengkap || "-"}<br>
+          💰 Rp ${o.total}<br>
+          <b>Status: ${o.status}</b><br><br>
 
-  <a href="https://wa.me/${o.telp}" target="_blank">
-    <button style="background:#25D366;">💬 Chat Customer</button>
-  </a>
-`;
+          <a href="https://wa.me/${o.telp}" target="_blank">
+            <button style="background:#25D366;">💬 Chat Customer</button>
+          </a>
+        `;
 
         container.appendChild(div);
       });
@@ -399,28 +431,34 @@ function loadLogistik() {
     });
 }
 
-/* ================= LOAD STOCK KE INDEX ================= */
+/* =================================================
+   STOCK USER
+================================================= */
 
 function loadStockUser() {
   fetch(BASE_URL + "/stocks")
     .then(res => res.json())
     .then(data => {
 
+      if (!document.getElementById("stokNormal")) return;
+
       let normal = data.find(s => s.nama === "Mie Jebew Porsi Normal");
       let mini = data.find(s => s.nama === "Mie Jebew Porsi Mini");
 
-      // tampilkan stok
-      document.getElementById("stokNormal").innerText = "Stok: " + (normal?.jumlah ?? 0);
-      document.getElementById("stokMini").innerText = "Stok: " + (mini?.jumlah ?? 0);
+      document.getElementById("stokNormal").innerText =
+        "Stok: " + (normal?.jumlah ?? 0);
 
-      // 🔥 HITUNG YANG SUDAH DIKERANJANG
+      document.getElementById("stokMini").innerText =
+        "Stok: " + (mini?.jumlah ?? 0);
+
       let jumlahNormal = keranjang.filter(i => i.nama === "Mie Jebew Porsi Normal").length;
       let jumlahMini = keranjang.filter(i => i.nama === "Mie Jebew Porsi Mini").length;
 
-      // 🔥 DISABLE kalau stok habis ATAU sudah penuh di keranjang
-      document.getElementById("btn-normal").disabled = !normal || normal.jumlah <= jumlahNormal;
-      document.getElementById("btn-mini").disabled = !mini || mini.jumlah <= jumlahMini;
+      document.getElementById("btn-normal").disabled =
+        !normal || normal.jumlah <= jumlahNormal;
 
+      document.getElementById("btn-mini").disabled =
+        !mini || mini.jumlah <= jumlahMini;
     });
 }
 

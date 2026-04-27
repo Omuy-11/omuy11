@@ -1,3 +1,5 @@
+require("dotenv").config();
+
 const express = require("express");
 const mysql = require("mysql2");
 const crypto = require("crypto");
@@ -9,12 +11,29 @@ app.use(express.static("public"));
 
 /* ================= DATABASE ================= */
 
-const db = mysql.createPool({
-  uri: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false
-  }
-});
+const isRailway =
+  process.env.MYSQLHOST && process.env.MYSQLHOST !== "localhost";
+
+const db = mysql.createPool(
+  isRailway
+    ? {
+        host: process.env.MYSQLHOST,
+        user: process.env.MYSQLUSER,
+        password: process.env.MYSQLPASSWORD,
+        database: process.env.MYSQLDATABASE,
+        port: process.env.MYSQLPORT,
+        ssl: { rejectUnauthorized: false }
+      }
+    : {
+        host: "localhost",
+        user: "root",
+        password: "",
+        database: "order_app",
+        port: 3306
+      }
+);
+
+console.log("MODE:", isRailway ? "RAILWAY" : "LOCAL");
 
 db.getConnection((err, conn) => {
   if (err) {
@@ -28,30 +47,40 @@ db.getConnection((err, conn) => {
 /* ================= LOGIN ================= */
 
 const ADMIN = {
-  user: process.env.ADMIN_USER,
-  pass: process.env.ADMIN_PASS
+  user: process.env.ADMIN_USER || "omuy",
+  pass: process.env.ADMIN_PASS || "rayaa"
 };
 
-// 🔥 SESSION SEDERHANA
 let sessions = {};
 
+setInterval(() => {
+  const ONE_DAY = 24 * 60 * 60 * 1000;
+
+  for (let token in sessions) {
+    if (Date.now() - sessions[token].createdAt > ONE_DAY) {
+      delete sessions[token];
+    }
+  }
+}, 60 * 60 * 1000);
+
+// LOGIN
 app.post("/login", (req, res) => {
   const { user, pass } = req.body;
 
   if (user === ADMIN.user && pass === ADMIN.pass) {
-
     const token = crypto.randomBytes(16).toString("hex");
 
-    sessions[token] = true;
+    sessions[token] = {
+      createdAt: Date.now()
+    };
 
     res.json({ success: true, token });
-
   } else {
     res.json({ success: false });
   }
 });
 
-// 🔥 MIDDLEWARE AUTH
+// AUTH
 function auth(req, res, next) {
   let token = req.headers["authorization"];
 
@@ -63,114 +92,190 @@ function auth(req, res, next) {
     return res.status(401).json({ error: "Unauthorized" });
   }
 
+  const session = sessions[token];
+  const ONE_DAY = 24 * 60 * 60 * 1000;
+
+  if (Date.now() - session.createdAt > ONE_DAY) {
+    delete sessions[token];
+    return res.status(401).json({ error: "Session expired" });
+  }
+
   next();
+}
+
+// HELPER ROLLBACK
+function rollback(conn, res, message) {
+  conn.rollback(() => {
+    conn.release();
+    res.status(500).json({ error: message });
+  });
 }
 
 /* ================= ORDER ================= */
 
-// CREATE ORDER (PUBLIC)
+// CREATE ORDER
 app.post("/order", (req, res) => {
-  const { nama, telp, items, total, alamat, alamatLengkap, pembayaran } = req.body;
+  const { nama, telp, items, alamat, alamatLengkap, pembayaran } = req.body;
 
-  // 🔥 STEP 8
-  if (!telp) {
-    return res.status(400).json({ error: "No telp wajib!" });
+  if (!items || !Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ error: "Item tidak valid!" });
   }
 
-  // 🔥 CEK STOCK
-  db.query("SELECT * FROM stocks", (err, stocks) => {
-
-    if (err) {
-      return res.status(500).json({ error: "DB error" });
+  for (let item of items) {
+    if (
+      !item.nama ||
+      typeof item.nama !== "string" ||
+      typeof item.harga !== "number"
+    ) {
+      return res.status(400).json({ error: "Format item tidak valid!" });
     }
+  }
 
-    for (let item of items) {
-      let s = stocks.find(x => x.nama === item.nama);
-      let jumlahDiOrder = items.filter(i => i.nama === item.nama).length;
+  if (!telp || telp.length < 10) {
+    return res.status(400).json({ error: "No telp tidak valid!" });
+  }
 
-      if (!s || s.jumlah < jumlahDiOrder) {
-        return res.status(400).json({ error: "Stock tidak cukup!" });
+  db.getConnection((err, conn) => {
+    if (err) return res.status(500).json({ error: "DB error" });
+
+    conn.beginTransaction(err => {
+      if (err) return rollback(conn, res, "Transaction error");
+
+      // HITUNG ITEM
+      const itemCount = {};
+      for (let item of items) {
+        itemCount[item.nama] = (itemCount[item.nama] || 0) + 1;
       }
-    }
 
-    // 🔥 KURANGI STOCK
-    items.forEach(item => {
-      db.query(
-        "UPDATE stocks SET jumlah = GREATEST(jumlah - 1, 0) WHERE nama = ?",
-        [item.nama]
-      );
-    });
+      const names = Object.keys(itemCount);
 
-    // 🔥 INSERT ORDER
-    db.query("SELECT MAX(antrian) AS last FROM orders", (err, result) => {
+      // LOCK STOCK
+      conn.query(
+        "SELECT * FROM stocks WHERE nama IN (?) FOR UPDATE",
+        [names],
+        (err, stocks) => {
+          if (err) return rollback(conn, res, "DB error");
 
-      let last = result[0]?.last || 0;
-      let nextAntrian = parseInt(last) + 1;
+          // CEK STOCK
+          for (let nama in itemCount) {
+            let s = stocks.find(x => x.nama === nama);
 
-      db.query(
-        "INSERT INTO orders (nama, telp, items, total, alamat, alamat_lengkap, pembayaran, antrian, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        [
-          nama,
-          telp,
-          JSON.stringify(items),
-          total,
-          alamat,
-          alamatLengkap,
-          pembayaran,
-          nextAntrian,
-          "Menunggu"
-        ],
-        (err2, result2) => {
-          if (err2) {
-            return res.status(500).json({ error: "DB error (insert)" });
+            if (!s || s.jumlah < itemCount[nama]) {
+              conn.rollback(() => conn.release());
+              return res
+                .status(400)
+                .json({ error: "Stock tidak cukup!" });
+            }
           }
 
-          res.json({
-            id: result2.insertId,
-            antrian: nextAntrian
-          });
+          // UPDATE STOCK
+          const updates = Object.entries(itemCount).map(
+            ([nama, qty]) =>
+              new Promise((resolve, reject) => {
+                conn.query(
+                  "UPDATE stocks SET jumlah = jumlah - ? WHERE nama = ? AND jumlah >= ?",
+                  [qty, nama, qty],
+                  (err, result) => {
+                    if (err) return reject(err);
+                    if (result.affectedRows === 0)
+                      return reject(new Error("Stock gagal update"));
+                    resolve();
+                  }
+                );
+              })
+          );
+
+          Promise.all(updates)
+            .then(() => {
+              // HITUNG TOTAL ASLI
+              const realTotal = items.reduce(
+                (sum, item) => sum + item.harga,
+                0
+              );
+
+              // ANTRIAN
+              conn.query(
+                "SELECT MAX(antrian) as last FROM orders FOR UPDATE",
+                (err, result) => {
+                  if (err) return rollback(conn, res, "DB error");
+
+                  const last = result[0]?.last || 0;
+                  const nextAntrian = last + 1;
+
+                  // INSERT ORDER
+                  conn.query(
+                    "INSERT INTO orders (nama, telp, items, total, alamat, alamat_lengkap, pembayaran, antrian, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    [
+                      nama,
+                      telp,
+                      JSON.stringify(items),
+                      realTotal,
+                      alamat,
+                      alamatLengkap,
+                      pembayaran,
+                      nextAntrian,
+                      "menunggu"
+                    ],
+                    (err2, result2) => {
+                      if (err2)
+                        return rollback(conn, res, "Insert error");
+
+                      conn.commit(err => {
+                        if (err)
+                          return rollback(conn, res, "Commit error");
+
+                        conn.release();
+
+                        res.json({
+                          id: result2.insertId,
+                          antrian: nextAntrian
+                        });
+                      });
+                    }
+                  );
+                }
+              );
+            })
+            .catch(err => rollback(conn, res, err.message));
         }
       );
     });
-
   });
 });
 
-// PUBLIC ORDERS
+/* ================= PUBLIC ================= */
+
 app.get("/public-orders", (req, res) => {
-  db.query("SELECT * FROM orders ORDER BY id DESC LIMIT 20", (err, results) => {
-
-    if (err) {
-      console.log("🔥 ERROR ASLI:", err);
-      return res.status(500).json({
-        error: err.message
-      });
+  db.query(
+    "SELECT * FROM orders ORDER BY id DESC LIMIT 20",
+    (err, results) => {
+      if (err)
+        return res.status(500).json({ error: err.message });
+      res.json(results || []);
     }
-
-    res.json(results || []);
-  });
+  );
 });
 
-// UPDATE STATUS (ADMIN)
+/* ================= ADMIN ================= */
+
 app.put("/order/:id", auth, (req, res) => {
   const { status } = req.body;
 
   db.query(
     "UPDATE orders SET status=? WHERE id=?",
     [status, req.params.id],
-    (err) => {
+    err => {
       if (err) return res.status(500).json(err);
       res.sendStatus(200);
     }
   );
 });
 
-// DELETE ORDER (ADMIN)
 app.delete("/order/:id", auth, (req, res) => {
   db.query(
     "DELETE FROM orders WHERE id=?",
     [req.params.id],
-    (err) => {
+    err => {
       if (err) return res.status(500).json(err);
       res.sendStatus(200);
     }
@@ -179,22 +284,16 @@ app.delete("/order/:id", auth, (req, res) => {
 
 /* ================= STOCK ================= */
 
-// GET STOCK (PUBLIC)
 app.get("/stocks", (req, res) => {
   db.query("SELECT * FROM stocks ORDER BY id DESC", (err, results) => {
-    if (err) {
-      console.log("ERROR STOCK GET:", err);
-      return res.status(500).json({ error: "DB error" });
-    }
+    if (err) return res.status(500).json({ error: "DB error" });
     res.json(results || []);
   });
 });
 
-// TAMBAH STOCK (ADMIN)
 app.post("/stocks", auth, (req, res) => {
   const { nama, jumlah } = req.body;
 
-  // 🔥 VALIDASI DI SINI
   if (!nama || typeof jumlah !== "number" || jumlah < 0) {
     return res.status(400).json({ error: "Data tidak valid" });
   }
@@ -202,17 +301,13 @@ app.post("/stocks", auth, (req, res) => {
   db.query(
     "INSERT INTO stocks (nama, jumlah) VALUES (?, ?)",
     [nama, jumlah],
-    (err) => {
-      if (err) {
-        console.log("ERROR INSERT STOCK:", err);
-        return res.status(500).json({ error: "DB error" });
-      }
+    err => {
+      if (err) return res.status(500).json({ error: "DB error" });
       res.sendStatus(200);
     }
   );
 });
 
-// UPDATE STOCK (➕➖)
 app.put("/stocks/update", auth, (req, res) => {
   const { nama, jumlah } = req.body;
 
@@ -223,26 +318,19 @@ app.put("/stocks/update", auth, (req, res) => {
   db.query(
     "UPDATE stocks SET jumlah = GREATEST(jumlah + ?, 0) WHERE nama = ?",
     [jumlah, nama],
-    (err) => {
-      if (err) {
-        console.log("ERROR UPDATE STOCK:", err);
-        return res.status(500).json({ error: "DB error" });
-      }
+    err => {
+      if (err) return res.status(500).json({ error: "DB error" });
       res.sendStatus(200);
     }
   );
 });
 
-// DELETE STOCK
 app.delete("/stocks/:id", auth, (req, res) => {
   db.query(
     "DELETE FROM stocks WHERE id = ?",
     [req.params.id],
-    (err) => {
-      if (err) {
-        console.log("ERROR DELETE STOCK:", err);
-        return res.status(500).json({ error: "DB error" });
-      }
+    err => {
+      if (err) return res.status(500).json({ error: "DB error" });
       res.sendStatus(200);
     }
   );

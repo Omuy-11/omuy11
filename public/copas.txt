@@ -1,262 +1,361 @@
 	server.js
 
 	const express = require("express");
-	const mysql = require("mysql2");
-	const crypto = require("crypto");
+const mysql = require("mysql2");
+const crypto = require("crypto");
 
-	const app = express();
+const app = express();
 
-	app.use(express.json());
-	app.use(express.static("public"));
+app.use(express.json());
+app.use(express.static("public"));
 
-	/* ================= DATABASE ================= */
+/* ================= DATABASE ================= */
 
-	const db = mysql.createPool({
-	  uri: process.env.DATABASE_URL,
-	  ssl: {
-		rejectUnauthorized: false
-	  }
-	});
+const db = mysql.createPool(
+  process.env.MYSQLHOST
+    ? {
+        host: process.env.MYSQLHOST,
+        user: process.env.MYSQLUSER,
+        password: process.env.MYSQLPASSWORD,
+        database: process.env.MYSQLDATABASE,
+        port: process.env.MYSQLPORT,
+        ssl: { rejectUnauthorized: false }
+      }
+    : {
+        host: "localhost",
+        user: "root",
+        password: "",
+        database: "order_app"
+      }
+);
 
-	db.getConnection((err, conn) => {
-	  if (err) {
-		console.log("❌ DB ERROR:", err);
-	  } else {
-		console.log("✅ MySQL Connected");
-		conn.release();
-	  }
-	});
+/* ================= LOGIN ================= */
 
-	/* ================= LOGIN ================= */
+const ADMIN = {
+  user: process.env.ADMIN_USER || "omuy",
+  pass: process.env.ADMIN_PASS || "rayaa"
+};
 
-	const ADMIN = {
-	  user: process.env.ADMIN_USER,
-	  pass: process.env.ADMIN_PASS
-	};
+// 🔥 CEK ENV
+if (!ADMIN.user || !ADMIN.pass) {
+  console.warn("⚠️ ADMIN ENV BELUM DISET!");
+}
 
-	// 🔥 SESSION SEDERHANA
-	let sessions = {};
+let sessions = {};
 
-	app.post("/login", (req, res) => {
-	  const { user, pass } = req.body;
+// 🔥 AUTO CLEANUP SESSION
+setInterval(() => {
+  const ONE_DAY = 24 * 60 * 60 * 1000;
 
-	  if (user === ADMIN.user && pass === ADMIN.pass) {
+  for (let token in sessions) {
+    if (Date.now() - sessions[token].createdAt > ONE_DAY) {
+      delete sessions[token];
+    }
+  }
+}, 60 * 60 * 1000); // tiap 1 jam
 
-		const token = crypto.randomBytes(16).toString("hex");
+app.post("/login", (req, res) => {
+  const { user, pass } = req.body;
 
-		sessions[token] = true;
+  if (user === ADMIN.user && pass === ADMIN.pass) {
 
-		res.json({ success: true, token });
+    const token = crypto.randomBytes(16).toString("hex");
 
-	  } else {
-		res.json({ success: false });
-	  }
-	});
+    sessions[token] = {
+  createdAt: Date.now()
+};
 
-	// 🔥 MIDDLEWARE AUTH
-	function auth(req, res, next) {
-	  let token = req.headers["authorization"];
+    res.json({ success: true, token });
 
-	  if (token && token.startsWith("Bearer ")) {
-		token = token.slice(7);
-	  }
+  } else {
+    res.json({ success: false });
+  }
+});
 
-	  if (!token || !sessions[token]) {
-		return res.status(401).json({ error: "Unauthorized" });
-	  }
+// 🔥 MIDDLEWARE AUTH
+function auth(req, res, next) {
+  let token = req.headers["authorization"];
 
-	  next();
-	}
+  if (token && token.startsWith("Bearer ")) {
+    token = token.slice(7);
+  }
 
-	/* ================= ORDER ================= */
+  if (!token || !sessions[token]) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
 
-	// CREATE ORDER (PUBLIC)
+  // 🔥 CEK EXPIRED (1 hari)
+  const session = sessions[token];
+  const ONE_DAY = 24 * 60 * 60 * 1000;
+
+  if (Date.now() - session.createdAt > ONE_DAY) {
+    delete sessions[token];
+    return res.status(401).json({ error: "Session expired" });
+  }
+
+  next();
+}
+
+/* ================= ORDER ================= */
+
+// CREATE ORDER (PUBLIC)
 app.post("/order", (req, res) => {
   const { nama, telp, items, total, alamat, alamatLengkap, pembayaran } = req.body;
 
-  // 🔥 STEP 8
-  if (!telp) {
-    return res.status(400).json({ error: "No telp wajib!" });
+  // 🔥 VALIDASI ITEMS (TARUH DI SINI)
+  if (!items || !Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ error: "Item tidak valid!" });
   }
 
-  // 🔥 CEK STOCK
-  db.query("SELECT * FROM stocks", (err, stocks) => {
-
-    if (err) {
-      return res.status(500).json({ error: "DB error" });
+  for (let item of items) {
+    if (
+      !item.nama ||
+      typeof item.nama !== "string" ||
+      !item.harga ||
+      typeof item.harga !== "number"
+    ) {
+      return res.status(400).json({ error: "Format item tidak valid!" });
     }
+  }
 
-    for (let item of items) {
-      let s = stocks.find(x => x.nama === item.nama);
-      let jumlahDiOrder = items.filter(i => i.nama === item.nama).length;
+  if (!telp || telp.length < 10) {
+  return res.status(400).json({ error: "No telp tidak valid!" });
+}
 
-      if (!s || s.jumlah < jumlahDiOrder) {
-        return res.status(400).json({ error: "Stock tidak cukup!" });
-      }
-    }
+  db.getConnection((err, conn) => {
+    if (err) return res.status(500).json({ error: "DB error" });
 
-    // 🔥 KURANGI STOCK
-    items.forEach(item => {
-      db.query(
-        "UPDATE stocks SET jumlah = GREATEST(jumlah - 1, 0) WHERE nama = ?",
-        [item.nama]
-      );
-    });
+    conn.beginTransaction(err => {
+      if (err) return res.status(500).json({ error: "Transaction error" });
 
-    // 🔥 INSERT ORDER
-    db.query("SELECT MAX(antrian) AS last FROM orders", (err, result) => {
-
-      let last = result[0]?.last || 0;
-      let nextAntrian = parseInt(last) + 1;
-
-      db.query(
-        "INSERT INTO orders (nama, telp, items, total, alamat, alamat_lengkap, pembayaran, antrian, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        [
-          nama,
-          telp,
-          JSON.stringify(items),
-          total,
-          alamat,
-          alamatLengkap,
-          pembayaran,
-          nextAntrian,
-          "Menunggu"
-        ],
-        (err2, result2) => {
-          if (err2) {
-            return res.status(500).json({ error: "DB error (insert)" });
-          }
-
-          res.json({
-            id: result2.insertId,
-            antrian: nextAntrian
-          });
+      // 🔒 LOCK STOCK
+      conn.query("SELECT * FROM stocks FOR UPDATE", (err, stocks) => {
+        if (err) {
+          conn.rollback(() => conn.release());
+          return res.status(500).json({ error: "DB error" });
         }
-      );
+
+        // 🔍 CEK STOCK
+        const itemCount = {};
+
+for (let item of items) {
+  itemCount[item.nama] = (itemCount[item.nama] || 0) + 1;
+}
+
+for (let nama in itemCount) {
+  let s = stocks.find(x => x.nama === nama);
+
+  if (!s || s.jumlah < itemCount[nama]) {
+    conn.rollback(() => conn.release());
+    return res.status(400).json({ error: "Stock tidak cukup!" });
+  }
+}
+
+        // ➖ KURANGI STOCK
+const updatePromises = items.map(item => {
+  return new Promise((resolve, reject) => {
+    conn.query(
+      "UPDATE stocks SET jumlah = jumlah - 1 WHERE nama = ? AND jumlah > 0",
+      [item.nama],
+      (err, result) => {
+        if (err) return reject(err);
+
+        if (result.affectedRows === 0) {
+          return reject(new Error("Stock habis saat update"));
+        }
+
+        resolve();
+      }
+    );
+  });
+});
+
+        Promise.all(updatePromises)
+  .then(() => {
+
+    // 🔢 HITUNG ANTRIAN
+    conn.query("SELECT MAX(antrian) as last FROM orders FOR UPDATE", (err, result) => {
+              if (err) {
+                conn.rollback(() => conn.release());
+                return res.status(500).json({ error: "DB error" });
+              }
+
+              let last = result[0]?.last || 0;
+              let nextAntrian = parseInt(last) + 1;
+
+              // 💾 INSERT ORDER
+conn.query(
+  "INSERT INTO orders (nama, telp, items, total, alamat, alamat_lengkap, pembayaran, antrian, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+  [
+    nama,
+    telp,
+    JSON.stringify(items),
+    total,
+    alamat,
+    alamatLengkap,
+    pembayaran,
+    nextAntrian,
+    "menunggu"
+  ],
+                (err2, result2) => {
+                  if (err2) {
+                    conn.rollback(() => conn.release());
+                    return res.status(500).json({ error: "DB error (insert)" });
+                  }
+
+                  // ✅ SIMPAN SEMUA
+                  conn.commit(err => {
+                    if (err) {
+                      conn.rollback(() => conn.release());
+                      return res.status(500).json({ error: "Commit error" });
+                    }
+
+                    conn.release();
+
+                    res.json({
+                      id: result2.insertId,
+                      antrian: nextAntrian
+                    });
+                  });
+
+                }
+              );
+            });
+
+                    })
+          .catch(err => {
+            conn.rollback(() => conn.release());
+            res.status(500).json({ error: "Update error" });
+          });
+
+      });
+
     });
 
   });
 });
 
-	// PUBLIC ORDERS
-	app.get("/public-orders", (req, res) => {
-	  db.query("SELECT * FROM orders ORDER BY id DESC LIMIT 20", (err, results) => {
+// PUBLIC ORDERS
+app.get("/public-orders", (req, res) => {
+  db.query(
+    "SELECT * FROM orders ORDER BY id DESC LIMIT 20",
+    (err, results) => {
+      if (err) {
+        console.log("🔥 ERROR ASLI:", err);
+        return res.status(500).json({
+          error: err.message
+        });
+      }
 
-		if (err) {
-		  console.log("🔥 ERROR ASLI:", err);
-		  return res.status(500).json({
-			error: err.message
-		  });
-		}
+      res.json(results || []);
+    }
+  );
+});
 
-		res.json(results || []);
-	  });
-	});
+// UPDATE STATUS (ADMIN)
+app.put("/order/:id", auth, (req, res) => {
+  const { status } = req.body;
 
-	// UPDATE STATUS (ADMIN)
-	app.put("/order/:id", auth, (req, res) => {
-	  const { status } = req.body;
+  db.query(
+    "UPDATE orders SET status=? WHERE id=?",
+    [status, req.params.id],
+    (err) => {
+      if (err) return res.status(500).json(err);
+      res.sendStatus(200);
+    }
+  );
+});
 
-	  db.query(
-		"UPDATE orders SET status=? WHERE id=?",
-		[status, req.params.id],
-		(err) => {
-		  if (err) return res.status(500).json(err);
-		  res.sendStatus(200);
-		}
-	  );
-	});
+// DELETE ORDER (ADMIN)
+app.delete("/order/:id", auth, (req, res) => {
+  db.query(
+    "DELETE FROM orders WHERE id=?",
+    [req.params.id],
+    (err) => {
+      if (err) return res.status(500).json(err);
+      res.sendStatus(200);
+    }
+  );
+});
 
-	// DELETE ORDER (ADMIN)
-	app.delete("/order/:id", auth, (req, res) => {
-	  db.query(
-		"DELETE FROM orders WHERE id=?",
-		[req.params.id],
-		(err) => {
-		  if (err) return res.status(500).json(err);
-		  res.sendStatus(200);
-		}
-	  );
-	});
+/* ================= STOCK ================= */
 
-	/* ================= STOCK ================= */
+// GET STOCK (PUBLIC)
+app.get("/stocks", (req, res) => {
+  db.query("SELECT * FROM stocks ORDER BY id DESC", (err, results) => {
+    if (err) {
+      console.log("ERROR STOCK GET:", err);
+      return res.status(500).json({ error: "DB error" });
+    }
+    res.json(results || []);
+  });
+});
 
-	// GET STOCK (PUBLIC)
-	app.get("/stocks", (req, res) => {
-	  db.query("SELECT * FROM stocks ORDER BY id DESC", (err, results) => {
-		if (err) {
-		  console.log("ERROR STOCK GET:", err);
-		  return res.status(500).json({ error: "DB error" });
-		}
-		res.json(results || []);
-	  });
-	});
+// TAMBAH STOCK (ADMIN)
+app.post("/stocks", auth, (req, res) => {
+  const { nama, jumlah } = req.body;
 
-	// TAMBAH STOCK (ADMIN)
-	app.post("/stocks", auth, (req, res) => {
-	  const { nama, jumlah } = req.body;
+  // 🔥 VALIDASI DI SINI
+  if (!nama || typeof jumlah !== "number" || jumlah < 0) {
+    return res.status(400).json({ error: "Data tidak valid" });
+  }
 
-	  // 🔥 VALIDASI DI SINI
-	  if (!nama || typeof jumlah !== "number" || jumlah < 0) {
-		return res.status(400).json({ error: "Data tidak valid" });
-	  }
+  db.query(
+    "INSERT INTO stocks (nama, jumlah) VALUES (?, ?)",
+    [nama, jumlah],
+    (err) => {
+      if (err) {
+        console.log("ERROR INSERT STOCK:", err);
+        return res.status(500).json({ error: "DB error" });
+      }
+      res.sendStatus(200);
+    }
+  );
+});
 
-	  db.query(
-		"INSERT INTO stocks (nama, jumlah) VALUES (?, ?)",
-		[nama, jumlah],
-		(err) => {
-		  if (err) {
-			console.log("ERROR INSERT STOCK:", err);
-			return res.status(500).json({ error: "DB error" });
-		  }
-		  res.sendStatus(200);
-		}
-	  );
-	});
+// UPDATE STOCK (➕➖)
+app.put("/stocks/update", auth, (req, res) => {
+  const { nama, jumlah } = req.body;
 
-	// UPDATE STOCK (➕➖)
-	app.put("/stocks/update", auth, (req, res) => {
-	  const { nama, jumlah } = req.body;
+  if (!nama || typeof jumlah !== "number") {
+    return res.status(400).json({ error: "Data tidak valid" });
+  }
 
-	  if (!nama || typeof jumlah !== "number") {
-		return res.status(400).json({ error: "Data tidak valid" });
-	  }
+  db.query(
+    "UPDATE stocks SET jumlah = GREATEST(jumlah + ?, 0) WHERE nama = ?",
+    [jumlah, nama],
+    (err) => {
+      if (err) {
+        console.log("ERROR UPDATE STOCK:", err);
+        return res.status(500).json({ error: "DB error" });
+      }
+      res.sendStatus(200);
+    }
+  );
+});
 
-	  db.query(
-		"UPDATE stocks SET jumlah = GREATEST(jumlah + ?, 0) WHERE nama = ?",
-		[jumlah, nama],
-		(err) => {
-		  if (err) {
-			console.log("ERROR UPDATE STOCK:", err);
-			return res.status(500).json({ error: "DB error" });
-		  }
-		  res.sendStatus(200);
-		}
-	  );
-	});
+// DELETE STOCK
+app.delete("/stocks/:id", auth, (req, res) => {
+  db.query(
+    "DELETE FROM stocks WHERE id = ?",
+    [req.params.id],
+    (err) => {
+      if (err) {
+        console.log("ERROR DELETE STOCK:", err);
+        return res.status(500).json({ error: "DB error" });
+      }
+      res.sendStatus(200);
+    }
+  );
+});
 
-	// DELETE STOCK
-	app.delete("/stocks/:id", auth, (req, res) => {
-	  db.query(
-		"DELETE FROM stocks WHERE id = ?",
-		[req.params.id],
-		(err) => {
-		  if (err) {
-			console.log("ERROR DELETE STOCK:", err);
-			return res.status(500).json({ error: "DB error" });
-		  }
-		  res.sendStatus(200);
-		}
-	  );
-	});
+/* ================= PORT ================= */
 
-	/* ================= PORT ================= */
+const PORT = process.env.PORT || 3000;
 
-	const PORT = process.env.PORT || 3000;
-
-	app.listen(PORT, () => {
-	  console.log("🔥 Server jalan di port " + PORT);
-	});
+app.listen(PORT, () => {
+  console.log("🔥 Server jalan di port " + PORT);
+});
 
 
 	admin.html
@@ -981,429 +1080,467 @@ h2 {
 
 	script.js
 
-	let keranjang = [];
-	let currentOrderId = null;
+let keranjang = [];
+let currentOrderId = null;
 
-	const BASE_URL = "https://omuy11-production.up.railway.app";
+/* =================================================
+   🔥 BASE CONFIG (DEV / PROD AUTO DETECT)
+================================================= */
 
-	  /* ================= ALAMAT TOGGLE ================= */
+const IS_LOCAL = window.location.hostname === "localhost";
 
-	document.addEventListener("DOMContentLoaded", () => {
-	  const alamatSelect = document.getElementById("alamat");
-	  const box = document.getElementById("alamatLengkapBox");
+const BASE_URL = IS_LOCAL 
+  ? "http://localhost:3000"
+  : "https://omuy11-production.up.railway.app";
 
-	  if (!alamatSelect || !box) return;
+/* =================================================
+   ALAMAT TOGGLE
+================================================= */
 
-	  function toggleAlamat() {
-		const val = alamatSelect.value;
+document.addEventListener("DOMContentLoaded", () => {
+  const alamatSelect = document.getElementById("alamat");
+  const box = document.getElementById("alamatLengkapBox");
 
-		if (val === "Pacet" || val === "Majalaya") {
-		  box.style.display = "block";
-		} else {
-		  box.style.display = "none";
-		}
-	  }
+  if (!alamatSelect || !box) return;
 
-	  alamatSelect.addEventListener("change", toggleAlamat);
-	  toggleAlamat();
-	});
+  function toggleAlamat() {
+    const val = alamatSelect.value;
 
-	/* ================= TAMBAH ITEM ================= */
+    if (val === "Pacet" || val === "Majalaya") {
+      box.style.display = "block";
+    } else {
+      box.style.display = "none";
+    }
+  }
 
-	function tambah(nama, harga) {
+  alamatSelect.addEventListener("change", toggleAlamat);
+  toggleAlamat();
+});
 
-  // ambil stok dari tampilan
+/* =================================================
+   TAMBAH ITEM
+================================================= */
+
+function tambah(nama, harga) {
+
   let stokText;
 
   if (nama === "Mie Jebew Porsi Normal") {
-    stokText = document.getElementById("stokNormal").innerText;
+    stokText = document.getElementById("stokNormal")?.innerText;
   } else if (nama === "Mie Jebew Porsi Mini") {
-    stokText = document.getElementById("stokMini").innerText;
+    stokText = document.getElementById("stokMini")?.innerText;
   }
 
-  let stok = parseInt(stokText.replace("Stok: ", "")) || 0;
+  let stok = parseInt((stokText || "").replace("Stok: ", "")) || 0;
 
-  // hitung jumlah item yang sama di keranjang
   let jumlahDiKeranjang = keranjang.filter(i => i.nama === nama).length;
 
-  // 🔥 VALIDASI
   if (jumlahDiKeranjang >= stok) {
     alert("Stok tidak cukup!");
     return;
   }
 
-  // kalau aman → tambah
-  keranjang.push({ 
-    nama, 
+  keranjang.push({
+    nama,
     harga: parseInt(harga)
   });
 
   renderKeranjang();
 }
 
-	/* ================= RENDER ================= */
+/* =================================================
+   RENDER KERANJANG
+================================================= */
 
-	function renderKeranjang() {
-	  const list = document.getElementById("keranjang");
-	  const totalEl = document.getElementById("total");
+function renderKeranjang() {
+  const list = document.getElementById("keranjang");
+  const totalEl = document.getElementById("total");
 
-	  if (!list || !totalEl) return;
+  if (!list || !totalEl) return;
 
-	  list.innerHTML = "";
+  list.innerHTML = "";
 
-	  let total = 0;
+  let total = 0;
 
-	  keranjang.forEach((item) => {
-		total += Number(item.harga);
+  keranjang.forEach((item) => {
+    total += Number(item.harga);
 
-		const li = document.createElement("li");
-		li.innerHTML = `${item.nama} - Rp ${item.harga}`;
-		list.appendChild(li);
-	  });
+    const li = document.createElement("li");
+    li.innerHTML = `${item.nama} - Rp ${item.harga}`;
+    list.appendChild(li);
+  });
 
-	  totalEl.innerText = "Rp " + total; // 🔥 ini yang kamu hilangin tadi
-	}
+  totalEl.innerText = "Rp " + total;
+}
 
-	/* ================= CHECKOUT ================= */
+/* =================================================
+   CHECKOUT
+================================================= */
 
-	function checkout() {
+function checkout() {
   const nama = document.getElementById("nama").value;
   const alamatSelect = document.getElementById("alamat");
   const alamat = alamatSelect.value;
   const pembayaran = document.getElementById("pembayaran").value;
   const alamatLengkap = document.getElementById("alamatLengkap")?.value || "";
 
-  // 🔥 TAMBAHAN
   let noTelp = document.getElementById("telp").value;
 
   if (noTelp.startsWith("08")) {
     noTelp = "62" + noTelp.slice(1);
   }
-	  
-	  console.log("KERANJANG:", keranjang);
 
-	  if (!nama || !alamat || !pembayaran || !noTelp || keranjang.length === 0) {
-		alert("Lengkapi data dulu!");
-		return;
-	  }
-	  
-	  if (noTelp.length < 10) {
-  alert("No telepon tidak valid!");
-  return;
+  if (!nama || !alamat || !pembayaran || !noTelp || keranjang.length === 0) {
+    alert("Lengkapi data dulu!");
+    return;
+  }
+
+  if (noTelp.length < 10) {
+    alert("No telepon tidak valid!");
+    return;
+  }
+
+  if ((alamat === "Pacet" || alamat === "Majalaya") && !alamatLengkap) {
+    alert("Alamat lengkap wajib diisi!");
+    return;
+  }
+
+  const ongkir = parseInt(alamatSelect.selectedOptions[0]?.dataset.ongkir || 0);
+
+  let total = keranjang.reduce((sum, item) => sum + item.harga, 0);
+  total += parseInt(ongkir);
+
+  kirimOrder(nama, noTelp, alamat, alamatLengkap, pembayaran, total);
 }
 
-	  if ((alamat === "Pacet" || alamat === "Majalaya") && !alamatLengkap) {
-		alert("Alamat lengkap wajib diisi!");
-		return;
-	  }
+/* =================================================
+   KIRIM ORDER (DEV SAFE MODE ACTIVE)
+================================================= */
 
-	  const ongkir = parseInt(alamatSelect.selectedOptions[0]?.dataset.ongkir || 0);
+function kirimOrder(nama, telp, alamat, alamatLengkap, pembayaran, total) {
 
-	  let total = keranjang.reduce((sum, item) => sum + item.harga, 0);
-	  total += parseInt(ongkir);
+  fetch(BASE_URL + "/order", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      nama: IS_LOCAL ? "[TEST] " + nama : nama,
+      telp,
+      items: keranjang,
+      total,
+      alamat,
+      alamatLengkap,
+      pembayaran,
+      isTest: IS_LOCAL
+    })
+  })
+    .then(res => {
+      if (!res.ok) throw new Error("Server error");
+      return res.json();
+    })
+    .then(data => {
+      currentOrderId = data.id;
 
-	  kirimOrder(nama, noTelp, alamat, alamatLengkap, pembayaran, total);
-	}
+      let nomor = data.antrian || 0;
 
-	/* ================= KIRIM ORDER ================= */
+      alert("Nomor Antrian Kamu: A" + String(nomor).padStart(3, "0"));
 
-	function kirimOrder(nama, telp, alamat, alamatLengkap, pembayaran, total) {
+      keranjang = [];
+      renderKeranjang();
+      mulaiPantauStatus();
+    })
+    .catch(err => {
+      console.error("ERROR:", err);
+      alert("Gagal kirim order!");
+    });
+}
 
-	  fetch(BASE_URL + "/order", {
-		method: "POST",
-		headers: {
-		  "Content-Type": "application/json"
-		},
-		body: JSON.stringify({
-  nama,
-  telp,
-  items: keranjang,
-  total,
-  alamat,
-  alamatLengkap,
-  pembayaran
-})
-	  })
-	  .then(res => {
-		if (!res.ok) throw new Error("Server error");
-		return res.json();
-	  })
-	  .then(data => {
-		currentOrderId = data.id;
+/* =================================================
+   STATUS MONITOR
+================================================= */
 
-		let nomor = data.antrian || 0;
+let intervalStatus = null;
 
-		alert("Nomor Antrian Kamu: A" + String(nomor).padStart(3, "0"));
+function mulaiPantauStatus() {
+  if (intervalStatus) clearInterval(intervalStatus);
 
-		// 🔥 kirim ke logistik + alamat lengkap
+  intervalStatus = setInterval(() => {
+    fetch(BASE_URL + "/public-orders")
+      .then(res => res.json())
+      .then(data => {
+        const order = data.find(o => o.id == currentOrderId);
+        if (!order) return;
 
-	keranjang = [];
-	renderKeranjang();
-	mulaiPantauStatus();
+        tampilkanStatus(order.status);
+      });
+  }, 2000);
+}
 
-	  })
-	  .catch(err => {
-		console.error("ERROR:", err);
-		alert("Gagal kirim order!");
-	  });
-	}
+function tampilkanStatus(status) {
+  const box = document.getElementById("statusBox");
+  if (!box) return;
 
-	/* ================= STATUS ================= */
+  let className = "";
 
-	let intervalStatus = null;
+  if (status === "menunggu") className = "menunggu";
+  if (status === "Diproses") className = "diproses";
+  if (status === "Diantar") className = "diantar";
+  if (status === "Selesai") className = "selesai";
 
-	function mulaiPantauStatus() {
-	  if (intervalStatus) clearInterval(intervalStatus);
+  box.innerHTML = `<div class="status ${className}">${status}</div>`;
+}
 
-	  intervalStatus = setInterval(() => {
-		fetch(BASE_URL + "/public-orders")
-		  .then(res => res.json())
-		  .then(data => {
-			const order = data.find(o => o.id == currentOrderId);
-			if (!order) return;
+/* =================================================
+   ADMIN PANEL
+================================================= */
 
-			tampilkanStatus(order.status);
-		  });
-	  }, 2000);
-	}
+function loadOrders() {
+  fetch(BASE_URL + "/public-orders")
+    .then(res => {
+      if (res.status === 401) {
+        logout();
+        return null;
+      }
+      return res.json();
+    })
+    .then(data => {
+      if (!data) return;
 
-	function tampilkanStatus(status) {
-	  const box = document.getElementById("statusBox");
-	  if (!box) return;
+      const container = document.getElementById("orders");
+      if (!container) return;
 
-	  let className = "";
+      container.innerHTML = "";
 
-	  if (status === "Menunggu") className = "menunggu";
-	  if (status === "Diproses") className = "diproses";
-	  if (status === "Diantar") className = "diantar";
-	  if (status === "Selesai") className = "selesai";
+      data.forEach(o => {
 
-	  box.innerHTML = `<div class="status ${className}">${status}</div>`;
-	}
+        /* 🧪 FILTER TEST ORDER (AMAN LEBIH PRESISI) */
+        if (o.nama?.startsWith("[TEST]")) return;
 
-	/* ================= ADMIN ================= */
+        let items = [];
+        try {
+          items = JSON.parse(o.items || "[]");
+        } catch {
+          items = [];
+        }
 
-	function initAdmin() {
-	  loadOrders();
-	  setInterval(loadOrders, 2000);
-	}
+        const div = document.createElement("div");
+        div.className = "card";
 
-	function loadOrders() {
-	  fetch(BASE_URL + "/public-orders")
-		.then(res => {
-		  if (res.status === 401) {
-			logout();
-			return null;
-		  }
-		  return res.json();
-		})
-		.then(data => {
-		  if (!data) return;
+        div.innerHTML = `
+          <b>🧾 A${String(o.antrian).padStart(3,"0")}</b><br>
+          <b>${o.nama || "-"}</b><br>
+          ${items.map(i => i.nama).join(", ")}<br>
+          Rp ${o.total}<br>
 
-		  const container = document.getElementById("orders");
-		  if (!container) return;
+          <div class="status-btns">
+            <button onclick="updateStatus(${o.id}, 'Menunggu')">Menunggu</button>
+            <button onclick="updateStatus(${o.id}, 'Diproses')">Diproses</button>
+            <button onclick="updateStatus(${o.id}, 'Diantar')">Diantar</button>
+            <button onclick="updateStatus(${o.id}, 'Selesai')">Selesai</button>
+          </div>
 
-		  container.innerHTML = "";
+          <button onclick="hapus(${o.id})" style="background:red;">Hapus</button>
+        `;
 
-		  data.forEach(o => {
-			let items = [];
-			try {
-			  items = JSON.parse(o.items || "[]");
-			} catch {
-			  items = [];
-			}
+        container.appendChild(div);
+      });
+    });
+}
 
-			const div = document.createElement("div");
-			div.className = "card";
+/* =================================================
+   AUTH / ADMIN
+================================================= */
 
-			div.innerHTML = `
-			  <b>🧾 A${String(o.antrian).padStart(3,"0")}</b><br>
-			  <b>${o.nama || "-"}</b><br>
-			  ${items.map(i => i.nama).join(", ")}<br>
-			  Rp ${o.total}<br>
+function login() {
+  const user = document.getElementById("user").value;
+  const pass = document.getElementById("pass").value;
 
-			  <div class="status-btns">
-				<button onclick="updateStatus(${o.id}, 'Menunggu')">Menunggu</button>
-				<button onclick="updateStatus(${o.id}, 'Diproses')">Diproses</button>
-				<button onclick="updateStatus(${o.id}, 'Diantar')">Diantar</button>
-				<button onclick="updateStatus(${o.id}, 'Selesai')">Selesai</button>
-			  </div>
+  fetch(BASE_URL + "/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ user, pass })
+  })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        localStorage.setItem("token", data.token);
+        window.location = "menu.html";
+      } else {
+        document.getElementById("msg").innerText = "Login gagal!";
+      }
+    });
+}
 
-			  <button onclick="hapus(${o.id})" style="background:red;">Hapus</button>
-			`;
+function logout() {
+  localStorage.removeItem("token");
+  window.location = "login.html";
+}
 
-			container.appendChild(div);
-		  });
-		});
-	}
+function cekLogin() {
+  const token = localStorage.getItem("token");
 
-	function updateStatus(id, status) {
-	  const token = localStorage.getItem("token");
+  if (!token) {
+    alert("Harus login dulu!");
+    window.location = "login.html";
+    return;
+  }
 
-	  if (!token) {
-		alert("Harus login dulu!");
-		window.location = "login.html";
-		return;
-	  }
+  initAdmin();
+}
 
-	  fetch(BASE_URL + "/order/" + id, {
-		method: "PUT",
-		headers: {
-		  "Content-Type": "application/json",
-		  "Authorization": "Bearer " + token
-		},
-		body: JSON.stringify({ status })
-	  })
-	  .then(res => {
-		if (res.status === 401) logout();
-	  });
-	}
+/* =================================================
+   ADMIN INIT
+================================================= */
 
-	function hapus(id) {
-	  const token = localStorage.getItem("token");
+function initAdmin() {
+  loadOrders();
+  setInterval(loadOrders, 2000);
+}
 
-	  if (!token) {
-		alert("Harus login dulu!");
-		window.location = "login.html";
-		return;
-	  }
+/* =================================================
+   STATUS UPDATE / DELETE
+================================================= */
 
-	  fetch(BASE_URL + "/order/" + id, {
-		method: "DELETE",
-		headers: {
-		  "Authorization": "Bearer " + token
-		}
-	  })
-	  .then(res => {
-		if (res.status === 401) logout();
-	  });
-	}
+function updateStatus(id, status) {
+  const token = localStorage.getItem("token");
 
-	/* ================= LOGIN ================= */
+  if (!token) {
+    alert("Harus login dulu!");
+    window.location = "login.html";
+    return;
+  }
 
-	function login() {
-	  const user = document.getElementById("user").value;
-	  const pass = document.getElementById("pass").value;
+  fetch(BASE_URL + "/order/" + id, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer " + token
+    },
+    body: JSON.stringify({ status })
+  })
+    .then(res => {
+      if (res.status === 401) logout();
+    });
+}
 
-	  fetch(BASE_URL + "/login", {
-		method: "POST",
-		headers: {"Content-Type":"application/json"},
-		body: JSON.stringify({ user, pass })
-	  })
-	  .then(res => res.json())
-	  .then(data => {
-		if (data.success) {
-		  localStorage.setItem("token", data.token);
-		  window.location = "menu.html";
-		} else {
-		  document.getElementById("msg").innerText = "Login gagal!";
-		}
-	  });
-	}
+function hapus(id) {
+  const token = localStorage.getItem("token");
 
-	function logout() {
-	  localStorage.removeItem("token");
-	  window.location = "login.html";
-	}
+  if (!token) {
+    alert("Harus login dulu!");
+    window.location = "login.html";
+    return;
+  }
 
-	function cekLogin() {
-	  const token = localStorage.getItem("token");
+  fetch(BASE_URL + "/order/" + id, {
+    method: "DELETE",
+    headers: {
+      "Authorization": "Bearer " + token
+    }
+  })
+    .then(res => {
+      if (res.status === 401) logout();
+    });
+}
 
-	  if (!token) {
-		alert("Harus login dulu!");
-		window.location = "login.html";
-		return;
-	  }
+/* =================================================
+   STATISTIK
+================================================= */
 
-	  initAdmin();
-	}
+function loadStats() {
+  fetch(BASE_URL + "/public-orders")
+    .then(res => res.json())
+    .then(data => {
 
-	/* ================= STATISTIK ================= */
+      let totalOrder = data.length;
+      let totalUang = data.reduce((sum, o) => sum + o.total, 0);
 
-	function loadStats() {
-	  fetch(BASE_URL + "/public-orders")
-		.then(res => res.json())
-		.then(data => {
-		  let totalOrder = data.length;
-		  let totalUang = data.reduce((sum, o) => sum + o.total, 0);
+      let selesai = data.filter(o => o.status === "Selesai").length;
+      let proses = data.filter(o => o.status === "Diproses").length;
+      let menunggu = data.filter(o => o.status === "menunggu").length;
 
-		  let selesai = data.filter(o => o.status === "Selesai").length;
-		  let proses = data.filter(o => o.status === "Diproses").length;
-		  let menunggu = data.filter(o => o.status === "Menunggu").length;
+      const el = document.getElementById("stats");
+      if (!el) return;
 
-		  const el = document.getElementById("stats");
-		  if (!el) return;
+      el.innerHTML = `
+        <b>Total Order:</b> ${totalOrder}<br>
+        <b>Total Pendapatan:</b> Rp ${totalUang}<br><br>
 
-		  el.innerHTML = `
-			<b>Total Order:</b> ${totalOrder}<br>
-			<b>Total Pendapatan:</b> Rp ${totalUang}<br><br>
+        🟡 Menunggu: ${menunggu}<br>
+        🔵 Diproses: ${proses}<br>
+        🟢 Selesai: ${selesai}
+      `;
+    });
+}
 
-			🟡 Menunggu: ${menunggu}<br>
-			🔵 Diproses: ${proses}<br>
-			🟢 Selesai: ${selesai}
-		  `;
-		});
-	}
+/* =================================================
+   LOGISTIK
+================================================= */
 
-	/* ================= LOGISTIK ================= */
+function loadLogistik() {
+  fetch(BASE_URL + "/public-orders")
+    .then(res => res.json())
+    .then(data => {
 
-	function loadLogistik() {
-	  fetch(BASE_URL + "/public-orders")
-		.then(res => res.json())
-		.then(data => {
+      const container = document.getElementById("logistik");
+      if (!container) return;
 
-		  const container = document.getElementById("logistik");
-		  if (!container) return;
+      container.innerHTML = "";
 
-		  container.innerHTML = "";
+      data.forEach(o => {
 
-		  data.forEach(o => {
+        const div = document.createElement("div");
+        div.className = "card";
 
-			const div = document.createElement("div");
-			div.className = "card";
+        div.innerHTML = `
+          <b>A${String(o.antrian).padStart(3,"0")}</b><br>
+          ${o.nama}<br>
+          📞 ${o.telp || "-"}<br>
+          📍 ${o.alamat}<br>
+          🏠 ${o.alamat_lengkap || "-"}<br>
+          💰 Rp ${o.total}<br>
+          <b>Status: ${o.status}</b><br><br>
 
-			div.innerHTML = `
-  <b>A${String(o.antrian).padStart(3,"0")}</b><br>
-  ${o.nama}<br>
-  📞 ${o.telp || "-"}<br>
-  📍 ${o.alamat}<br>
-  🏠 ${o.alamat_lengkap || "-"}<br>
-  💰 Rp ${o.total}<br>
-  <b>Status: ${o.status}</b><br><br>
+          <a href="https://wa.me/${o.telp}" target="_blank">
+            <button style="background:#25D366;">💬 Chat Customer</button>
+          </a>
+        `;
 
-  <a href="https://wa.me/${o.telp}" target="_blank">
-    <button style="background:#25D366;">💬 Chat Customer</button>
-  </a>
-`;
+        container.appendChild(div);
+      });
 
-			container.appendChild(div);
-		  });
+    });
+}
 
-		});
-	}
-	
-	/* ================= LOAD STOCK KE INDEX ================= */
+/* =================================================
+   STOCK USER
+================================================= */
 
 function loadStockUser() {
   fetch(BASE_URL + "/stocks")
     .then(res => res.json())
     .then(data => {
 
+      if (!document.getElementById("stokNormal")) return;
+
       let normal = data.find(s => s.nama === "Mie Jebew Porsi Normal");
       let mini = data.find(s => s.nama === "Mie Jebew Porsi Mini");
 
-      // tampilkan stok
-      document.getElementById("stokNormal").innerText = "Stok: " + (normal?.jumlah ?? 0);
-      document.getElementById("stokMini").innerText = "Stok: " + (mini?.jumlah ?? 0);
+      document.getElementById("stokNormal").innerText =
+        "Stok: " + (normal?.jumlah ?? 0);
 
-      // 🔥 HITUNG YANG SUDAH DIKERANJANG
+      document.getElementById("stokMini").innerText =
+        "Stok: " + (mini?.jumlah ?? 0);
+
       let jumlahNormal = keranjang.filter(i => i.nama === "Mie Jebew Porsi Normal").length;
       let jumlahMini = keranjang.filter(i => i.nama === "Mie Jebew Porsi Mini").length;
 
-      // 🔥 DISABLE kalau stok habis ATAU sudah penuh di keranjang
-      document.getElementById("btn-normal").disabled = !normal || normal.jumlah <= jumlahNormal;
-      document.getElementById("btn-mini").disabled = !mini || mini.jumlah <= jumlahMini;
+      document.getElementById("btn-normal").disabled =
+        !normal || normal.jumlah <= jumlahNormal;
 
+      document.getElementById("btn-mini").disabled =
+        !mini || mini.jumlah <= jumlahMini;
     });
 }
 
