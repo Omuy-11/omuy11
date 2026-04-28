@@ -206,7 +206,7 @@ app.post("/order", (req, res) => {
 
                   // INSERT ORDER
                   conn.query(
-                    "INSERT INTO orders (nama, telp, items, total, alamat, alamat_lengkap, pembayaran, antrian, status, is_test) VALUES VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    "INSERT INTO orders (nama, telp, items, total, alamat, alamat_lengkap, pembayaran, antrian, status, is_test) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
 [
   nama,
   telp,
