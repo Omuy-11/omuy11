@@ -142,16 +142,16 @@ function kirimOrder(nama, telp, alamat, alamatLengkap, pembayaran, total) {
     headers: {
       "Content-Type": "application/json"
     },
-    body: JSON.stringify({
-      nama: IS_LOCAL ? "[TEST] " + nama : nama,
-      telp,
-      items: keranjang,
-      total,
-      alamat,
-      alamatLengkap,
-      pembayaran,
-      isTest: IS_LOCAL
-    })
+body: JSON.stringify({
+  nama: nama,
+  telp,
+  items: keranjang,
+  total,
+  alamat,
+  alamatLengkap,
+  pembayaran,
+  isTest: IS_LOCAL // ✅ INI MODE TEST
+})
   })
     .then(res => {
       if (!res.ok) throw new Error("Server error");
@@ -215,41 +215,34 @@ function tampilkanStatus(status) {
 
 function loadOrders() {
   fetch(BASE_URL + "/public-orders")
-    .then(res => {
-      if (res.status === 401) {
-        logout();
-        return null;
-      }
-      return res.json();
-    })
+    .then(res => res.json())
     .then(data => {
-      if (!data) return;
 
       const container = document.getElementById("orders");
-      if (!container) return;
-
       container.innerHTML = "";
+
+      const SHOW_TEST = true; // ✅ DI SINI
 
       data.forEach(o => {
 
-        /* 🧪 FILTER TEST ORDER (AMAN LEBIH PRESISI) */
-        if (o.nama?.startsWith("[TEST]")) return;
+        if (!SHOW_TEST && o.is_test) return; // ✅ DI SINI
 
-        let items = [];
-        try {
-          items = JSON.parse(o.items || "[]");
-        } catch {
-          items = [];
-        }
+let items = [];
+try {
+  items = JSON.parse(o.items || "[]");
+} catch {}
 
         const div = document.createElement("div");
         div.className = "card";
 
-        div.innerHTML = `
-          <b>🧾 A${String(o.antrian).padStart(3,"0")}</b><br>
-          <b>${o.nama || "-"}</b><br>
-          ${items.map(i => i.nama).join(", ")}<br>
-          Rp ${o.total}<br>
+div.innerHTML = `
+  <b>🧾 A${String(o.antrian).padStart(3,"0")}</b><br>
+  <b>
+    ${o.nama || "-"} 
+    ${o.is_test ? "🧪" : ""}
+  </b><br>
+  ${items.map(i => i.nama).join(", ")}<br>
+  Rp ${o.total}<br>
 
           <div class="status-btns">
             <button onclick="updateStatus(${o.id}, 'menunggu')">menunggu</button>

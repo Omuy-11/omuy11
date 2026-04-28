@@ -115,7 +115,7 @@ function rollback(conn, res, message) {
 
 // CREATE ORDER
 app.post("/order", (req, res) => {
-  const { nama, telp, items, alamat, alamatLengkap, pembayaran } = req.body;
+  const { nama, telp, items, alamat, alamatLengkap, pembayaran, isTest } = req.body;
 
   if (!items || !Array.isArray(items) || items.length === 0) {
     return res.status(400).json({ error: "Item tidak valid!" });
@@ -204,18 +204,19 @@ app.post("/order", (req, res) => {
 
                   // INSERT ORDER
                   conn.query(
-                    "INSERT INTO orders (nama, telp, items, total, alamat, alamat_lengkap, pembayaran, antrian, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    "INSERT INTO orders (nama, telp, items, total, alamat, alamat_lengkap, pembayaran, antrian, status, is_test) VALUES VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     [
-                      nama,
-                      telp,
-                      JSON.stringify(items),
-                      realTotal,
-                      alamat,
-                      alamatLengkap,
-                      pembayaran,
-                      nextAntrian,
-                      "menunggu"
-                    ],
+  nama,
+  telp,
+  JSON.stringify(items),
+  realTotal,
+  alamat,
+  alamatLengkap,
+  pembayaran,
+  nextAntrian,
+  "menunggu",
+  isTest ? 1 : 0
+],
                     (err2, result2) => {
                       if (err2)
                         return rollback(conn, res, "Insert error");
