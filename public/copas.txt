@@ -1,85 +1,83 @@
 	server.js
 
-	const express = require("express");
-	const mysql = require("mysql2");
-	const crypto = require("crypto");
+const express = require("express");
+const mysql = require("mysql2");
+const crypto = require("crypto");
 
-	const app = express();
+const app = express();
 
-	app.use(express.json());
-	app.use(express.static("public"));
+app.use(express.json());
+app.use(express.static("public"));
 
-	/* ================= DATABASE ================= */
+/* ================= DATABASE ================= */
 
-	const db = mysql.createPool({
-	  uri: process.env.DATABASE_URL,
-	  ssl: {
-		rejectUnauthorized: false
-	  }
-	});
+const db = mysql.createPool({
+  uri: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false
+  }
+});
 
-	db.getConnection((err, conn) => {
-	  if (err) {
-		console.log("❌ DB ERROR:", err);
-	  } else {
-		console.log("✅ MySQL Connected");
-		conn.release();
-	  }
-	});
+db.getConnection((err, conn) => {
+  if (err) {
+    console.log("❌ DB ERROR:", err);
+  } else {
+    console.log("✅ MySQL Connected");
+    conn.release();
+  }
+});
 
-	/* ================= LOGIN ================= */
+/* ================= LOGIN ================= */
 
-	const ADMIN = {
-	  user: process.env.ADMIN_USER,
-	  pass: process.env.ADMIN_PASS
-	};
+const ADMIN = {
+  user: process.env.ADMIN_USER,
+  pass: process.env.ADMIN_PASS
+};
 
-	// 🔥 SESSION SEDERHANA
-	let sessions = {};
+// 🔥 SESSION SEDERHANA
+let sessions = {};
 
-	app.post("/login", (req, res) => {
-	  const { user, pass } = req.body;
+app.post("/login", (req, res) => {
+  const { user, pass } = req.body;
 
-	  if (user === ADMIN.user && pass === ADMIN.pass) {
+  if (user === ADMIN.user && pass === ADMIN.pass) {
 
-		const token = crypto.randomBytes(16).toString("hex");
+    const token = crypto.randomBytes(16).toString("hex");
 
-		sessions[token] = true;
+    sessions[token] = true;
 
-		res.json({ success: true, token });
+    res.json({ success: true, token });
 
-	  } else {
-		res.json({ success: false });
-	  }
-	});
+  } else {
+    res.json({ success: false });
+  }
+});
 
-	// 🔥 MIDDLEWARE AUTH
-	function auth(req, res, next) {
-	  let token = req.headers["authorization"];
+// 🔥 MIDDLEWARE AUTH
+function auth(req, res, next) {
+  let token = req.headers["authorization"];
 
-	  if (token && token.startsWith("Bearer ")) {
-		token = token.slice(7);
-	  }
+  if (token && token.startsWith("Bearer ")) {
+    token = token.slice(7);
+  }
 
-	  if (!token || !sessions[token]) {
-		return res.status(401).json({ error: "Unauthorized" });
-	  }
+  if (!token || !sessions[token]) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
 
-	  next();
-	}
+  next();
+}
 
-	/* ================= ORDER ================= */
+/* ================= ORDER ================= */
 
-	// CREATE ORDER (PUBLIC)
+// CREATE ORDER (PUBLIC)
 app.post("/order", (req, res) => {
-  const { nama, telp, items, total, alamat, alamatLengkap, pembayaran } = req.body;
+  const { nama, telp, items, total, alamat, alamatLengkap, pembayaran, affiliate } = req.body;
 
-  // 🔥 STEP 8
   if (!telp) {
     return res.status(400).json({ error: "No telp wajib!" });
   }
 
-  // 🔥 CEK STOCK
   db.query("SELECT * FROM stocks", (err, stocks) => {
 
     if (err) {
@@ -95,7 +93,7 @@ app.post("/order", (req, res) => {
       }
     }
 
-    // 🔥 KURANGI STOCK
+    // kurangi stock
     items.forEach(item => {
       db.query(
         "UPDATE stocks SET jumlah = GREATEST(jumlah - 1, 0) WHERE nama = ?",
@@ -103,14 +101,13 @@ app.post("/order", (req, res) => {
       );
     });
 
-    // 🔥 INSERT ORDER
     db.query("SELECT MAX(antrian) AS last FROM orders", (err, result) => {
 
       let last = result[0]?.last || 0;
       let nextAntrian = parseInt(last) + 1;
 
       db.query(
-        "INSERT INTO orders (nama, telp, items, total, alamat, alamat_lengkap, pembayaran, antrian, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO orders (nama, telp, items, total, alamat, alamat_lengkap, pembayaran, antrian, status, affiliate_kode) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         [
           nama,
           telp,
@@ -120,7 +117,8 @@ app.post("/order", (req, res) => {
           alamatLengkap,
           pembayaran,
           nextAntrian,
-          "Menunggu"
+          "Menunggu",
+          affiliate || null
         ],
         (err2, result2) => {
           if (err2) {
@@ -138,414 +136,182 @@ app.post("/order", (req, res) => {
   });
 });
 
-	// PUBLIC ORDERS
-	app.get("/public-orders", (req, res) => {
-	  db.query("SELECT * FROM orders ORDER BY id DESC LIMIT 20", (err, results) => {
-
-		if (err) {
-		  console.log("🔥 ERROR ASLI:", err);
-		  return res.status(500).json({
-			error: err.message
-		  });
-		}
-
-		res.json(results || []);
-	  });
-	});
-
-	// UPDATE STATUS (ADMIN)
-	app.put("/order/:id", auth, (req, res) => {
-	  const { status } = req.body;
-
-	  db.query(
-		"UPDATE orders SET status=? WHERE id=?",
-		[status, req.params.id],
-		(err) => {
-		  if (err) return res.status(500).json(err);
-		  res.sendStatus(200);
-		}
-	  );
-	});
-
-	// DELETE ORDER (ADMIN)
-	app.delete("/order/:id", auth, (req, res) => {
-	  db.query(
-		"DELETE FROM orders WHERE id=?",
-		[req.params.id],
-		(err) => {
-		  if (err) return res.status(500).json(err);
-		  res.sendStatus(200);
-		}
-	  );
-	});
-
-	/* ================= STOCK ================= */
-
-	// GET STOCK (PUBLIC)
-	app.get("/stocks", (req, res) => {
-	  db.query("SELECT * FROM stocks ORDER BY id DESC", (err, results) => {
-		if (err) {
-		  console.log("ERROR STOCK GET:", err);
-		  return res.status(500).json({ error: "DB error" });
-		}
-		res.json(results || []);
-	  });
-	});
-
-	// TAMBAH STOCK (ADMIN)
-	app.post("/stocks", auth, (req, res) => {
-	  const { nama, jumlah } = req.body;
-
-	  // 🔥 VALIDASI DI SINI
-	  if (!nama || typeof jumlah !== "number" || jumlah < 0) {
-		return res.status(400).json({ error: "Data tidak valid" });
-	  }
-
-	  db.query(
-		"INSERT INTO stocks (nama, jumlah) VALUES (?, ?)",
-		[nama, jumlah],
-		(err) => {
-		  if (err) {
-			console.log("ERROR INSERT STOCK:", err);
-			return res.status(500).json({ error: "DB error" });
-		  }
-		  res.sendStatus(200);
-		}
-	  );
-	});
-
-	// UPDATE STOCK (➕➖)
-	app.put("/stocks/update", auth, (req, res) => {
-	  const { nama, jumlah } = req.body;
-
-	  if (!nama || typeof jumlah !== "number") {
-		return res.status(400).json({ error: "Data tidak valid" });
-	  }
-
-	  db.query(
-		"UPDATE stocks SET jumlah = GREATEST(jumlah + ?, 0) WHERE nama = ?",
-		[jumlah, nama],
-		(err) => {
-		  if (err) {
-			console.log("ERROR UPDATE STOCK:", err);
-			return res.status(500).json({ error: "DB error" });
-		  }
-		  res.sendStatus(200);
-		}
-	  );
-	});
-
-	// DELETE STOCK
-	app.delete("/stocks/:id", auth, (req, res) => {
-	  db.query(
-		"DELETE FROM stocks WHERE id = ?",
-		[req.params.id],
-		(err) => {
-		  if (err) {
-			console.log("ERROR DELETE STOCK:", err);
-			return res.status(500).json({ error: "DB error" });
-		  }
-		  res.sendStatus(200);
-		}
-	  );
-	});
-
-	/* ================= PORT ================= */
-
-	const PORT = process.env.PORT || 3000;
-
-	app.listen(PORT, () => {
-	  console.log("🔥 Server jalan di port " + PORT);
-	});
-
-
-	admin.html
-
-	<!DOCTYPE html>
-	<html lang="id">
-	<head>
-	<meta charset="UTF-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>Admin</title>
-	<link rel="stylesheet" href="style.css">
-	</head>
-
-	<body onload="cekLogin()">
-
-	<div class="container">
-
-	<button onclick="window.location='menu.html'" style="background:#64748b; margin-bottom:10px;">
-	  ⬅️ Kembali ke Menu
-	</button>
-
-	<h2>📦 Admin Panel</h2>
-
-	<button onclick="loadOrders()">🔄 Refresh</button>
-	<button onclick="logout()" style="background:red;">Logout</button>
-
-	<div id="orders"></div>
-
-	</div>
-
-	<script src="script.js"></script>
-	</body>
-	</html>
-
-	antrian.html
-
-	<!DOCTYPE html>
-	<html lang="id">
-	<head>
-	<meta charset="UTF-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>Layar Antrian</title>
-
-	<style>
-	body {
-	  margin: 0;
-	  font-family: sans-serif;
-	  background: #020617;
-	  color: white;
-	  text-align: center;
-	}
-
-	.big {
-	  font-size: 120px;
-	  font-weight: bold;
-	  margin-top: 40px;
-	}
-
-	.status-big {
-	  font-size: 30px;
-	  margin-top: 10px;
-	}
-
-	.container {
-	  display: flex;
-	  justify-content: center;
-	  gap: 15px;
-	  flex-wrap: wrap;
-	  padding: 20px;
-	}
-
-	.card {
-	  background: #1e293b;
-	  padding: 15px;
-	  border-radius: 15px;
-	  width: 100px;
-	  font-size: 20px;
-	}
-
-	/* ================= WARNA ================= */
-
-	.menunggu {
-	  color: #f59e0b;
-	}
-
-	.diproses {
-	  color: #3b82f6;
-	}
-
-	.diantar {
-	  color: #22c55e;
-	}
-
-	.selesai {
-	  color: #94a3b8;
-	}
-
-	/* ================= ANIMASI ================= */
-
-	.blink {
-	  animation: blink 1s infinite alternate;
-	}
-
-	@keyframes blink {
-	  from { opacity: 1; }
-	  to { opacity: 0.5; }
-	}
-
-	.flash {
-	  animation: zoom 0.4s ease;
-	}
-
-	@keyframes zoom {
-	  0% { transform: scale(0.6); opacity: 0; }
-	  100% { transform: scale(1); opacity: 1; }
-	}
-
-	.fade-out {
-	  animation: fadeOut 1s forwards;
-	}
-
-	@keyframes fadeOut {
-	  to {
-		opacity: 0;
-		transform: scale(0.8);
-	  }
-	}
-	</style>
-	</head>
-
-	<body>
-
-	<button onclick="goBack()" 
-	style="position:absolute; top:10px; left:10px; background:#64748b;">
-	  ⬅️
-	</button>
-
-	<h1>📺 ANTRIAN</h1>
-
-	<div>
-	  <div id="bigNumber" class="big">A000</div>
-	  <div id="bigStatus" class="status-big"></div>
-	</div>
-
-	<div class="container" id="list"></div>
-
-	<script>
-
-	const BASE_URL = "https://omuy11-production.up.railway.app";
-
-	speechSynthesis.cancel();
-
-	let lastStatus = {};
-	let firstLoad = true;
-
-	/* ================= SUARA ================= */
-	function panggil(nomor, status) {
-	  let text = "";
-
-	  if (status === "menunggu") {
-		text = `Order A${nomor} baru masuk ya, siap diproses`;
-	  }
-
-	  if (status === "diproses") {
-		text = `Order A${nomor} lagi kita siapin, mohon ditunggu`;
-	  }
-
-	  if (status === "diantar") {
-		text = `Order A${nomor} lagi di jalan, ditunggu ya`;
-	  }
-
-	  if (status === "selesai") {
-		text = `Order A${nomor} sudah selesai, terima kasih`;
-	  }
-
-	  if (!text) return;
-
-	  function speak() {
-		const suara = new SpeechSynthesisUtterance(text);
-		suara.lang = "id-ID";
-		suara.rate = 0.95;
-		suara.pitch = 1;
-
-		speechSynthesis.cancel();
-		speechSynthesis.speak(suara);
-	  }
-
-	  if (speechSynthesis.getVoices().length === 0) {
-		speechSynthesis.onvoiceschanged = speak;
-	  } else {
-		speak();
-	  }
-	}
-
-	/* ================= LOAD ================= */
-	function loadAntrian() {
-	  fetch(BASE_URL + "/public-orders")
-		.then(res => res.json())
-		.then(data => {
-
-		  console.log("DATA ANTRIAN:", data);
-
-		  if (!data || data.length === 0) {
-			document.getElementById("bigNumber").innerText = "A000";
-			document.getElementById("bigStatus").innerText = "Belum ada order";
-			return;
-		  }
-
-		  const maxId = Math.max(...data.map(o => o.id));
-		  const utama = data.find(o => o.id === maxId);
-
-		  const nomorUtama = String(utama.antrian).padStart(3,"0");
-		  const statusUtama = utama.status.toLowerCase().trim();
-
-		  const big = document.getElementById("bigNumber");
-		  const statusEl = document.getElementById("bigStatus");
-
-		  big.innerText = "A" + nomorUtama;
-		  statusEl.innerText = utama.status;
-
-		  big.classList.add("flash");
-		  setTimeout(() => big.classList.remove("flash"), 400);
-
-		  if (!firstLoad && lastStatus[utama.id] !== statusUtama) {
-			panggil(nomorUtama, statusUtama);
-		  }
-
-		  lastStatus[utama.id] = statusUtama;
-
-		  const list = document.getElementById("list");
-		  list.innerHTML = "";
-
-		  data.forEach(o => {
-			const nomor = String(o.antrian).padStart(3,"0");
-			const status = o.status.toLowerCase().trim();
-
-			const div = document.createElement("div");
-			div.className = "card";
-
-			let warna = "";
-
-			if (status === "menunggu") warna = "menunggu";
-			if (status === "diproses") warna = "diproses";
-			if (status === "diantar") warna = "diantar";
-			if (status === "selesai") warna = "selesai";
-
-			if (status === "menunggu" && o.id === maxId) {
-			  div.classList.add("blink");
-			}
-
-			if (status === "selesai") {
-			  setTimeout(() => {
-				div.classList.add("fade-out");
-			  }, 2000);
-			}
-
-			div.innerHTML = `
-			  <div>A${nomor}</div>
-			  <div class="${warna}">${o.status}</div>
-			`;
-
-			list.appendChild(div);
-		  });
-
-		  firstLoad = false;
-
-		})
-		.catch(err => console.error("ERROR ANTRIAN:", err));
-	}
-
-	/* ================= REALTIME ================= */
-	setInterval(loadAntrian, 2000);
-	loadAntrian();
-
-	function goBack() {
-	  const url = new URLSearchParams(window.location.search);
-	  const from = url.get("from");
-
-	  if (from === "admin") {
-		window.location.href = "menu.html";
-	  } else {
-		window.location.href = "index.html";
-	  }
-	}
-
-	</script>
-
-	</body>
-	</html>
+// PUBLIC ORDERS
+app.get("/public-orders", (req, res) => {
+  db.query("SELECT * FROM orders ORDER BY id DESC LIMIT 20", (err, results) => {
+
+    if (err) {
+      console.log("🔥 ERROR ASLI:", err);
+      return res.status(500).json({
+        error: err.message
+      });
+    }
+
+    res.json(results || []);
+  });
+});
+
+// UPDATE STATUS (ADMIN)
+app.put("/order/:id", auth, (req, res) => {
+  const { status } = req.body;
+
+  db.query(
+    "UPDATE orders SET status=? WHERE id=?",
+    [status, req.params.id],
+    (err) => {
+      if (err) return res.status(500).json(err);
+      res.sendStatus(200);
+    }
+  );
+});
+
+// DELETE ORDER (ADMIN)
+app.delete("/order/:id", auth, (req, res) => {
+  db.query(
+    "DELETE FROM orders WHERE id=?",
+    [req.params.id],
+    (err) => {
+      if (err) return res.status(500).json(err);
+      res.sendStatus(200);
+    }
+  );
+});
+
+/* ================= AFFILIATE ================= */
+
+// SIMPAN / UPDATE AFFILIATE (kode + telp)
+app.post("/affiliate", (req, res) => {
+  const { kode, telp } = req.body;
+
+  if (!kode || !telp) {
+    return res.status(400).json({ error: "Data tidak lengkap" });
+  }
+
+  db.query(
+    "INSERT INTO affiliates (kode, telp) VALUES (?, ?) ON DUPLICATE KEY UPDATE telp=?",
+    [kode, telp, telp],
+    (err) => {
+      if (err) {
+        console.log("ERROR AFFILIATE:", err);
+        return res.status(500).json({ error: "DB error" });
+      }
+
+      res.sendStatus(200);
+    }
+  );
+});
+
+// CEK PERFORMA AFFILIATE
+app.get("/affiliate/:kode", (req, res) => {
+  const kode = req.params.kode;
+
+  db.query(
+    "SELECT * FROM orders WHERE affiliate_kode = ? AND status = 'Selesai'",
+    [kode],
+    (err, orders) => {
+
+      if (err) {
+        return res.status(500).json({ error: "DB error" });
+      }
+
+      db.query(
+        "SELECT * FROM affiliates WHERE kode = ?",
+        [kode],
+        (err2, aff) => {
+
+          const totalOrder = orders.length;
+          const komisiPerOrder = 1000;
+          const totalSaldo = totalOrder * komisiPerOrder;
+
+          res.json({
+            totalOrder,
+            totalSaldo,
+            telp: aff[0]?.telp || "-"
+          });
+
+        }
+      );
+    }
+  );
+});
+
+/* ================= STOCK ================= */
+
+// GET STOCK
+app.get("/stocks", (req, res) => {
+  db.query("SELECT * FROM stocks ORDER BY id DESC", (err, results) => {
+    if (err) {
+      console.log("ERROR STOCK GET:", err);
+      return res.status(500).json({ error: "DB error" });
+    }
+    res.json(results || []);
+  });
+});
+
+// TAMBAH STOCK
+app.post("/stocks", auth, (req, res) => {
+  const { nama, jumlah } = req.body;
+
+  if (!nama || typeof jumlah !== "number" || jumlah < 0) {
+    return res.status(400).json({ error: "Data tidak valid" });
+  }
+
+  db.query(
+    "INSERT INTO stocks (nama, jumlah) VALUES (?, ?)",
+    [nama, jumlah],
+    (err) => {
+      if (err) {
+        console.log("ERROR INSERT STOCK:", err);
+        return res.status(500).json({ error: "DB error" });
+      }
+      res.sendStatus(200);
+    }
+  );
+});
+
+// UPDATE STOCK
+app.put("/stocks/update", auth, (req, res) => {
+  const { nama, jumlah } = req.body;
+
+  if (!nama || typeof jumlah !== "number") {
+    return res.status(400).json({ error: "Data tidak valid" });
+  }
+
+  db.query(
+    "UPDATE stocks SET jumlah = GREATEST(jumlah + ?, 0) WHERE nama = ?",
+    [jumlah, nama],
+    (err) => {
+      if (err) {
+        console.log("ERROR UPDATE STOCK:", err);
+        return res.status(500).json({ error: "DB error" });
+      }
+      res.sendStatus(200);
+    }
+  );
+});
+
+// DELETE STOCK
+app.delete("/stocks/:id", auth, (req, res) => {
+  db.query(
+    "DELETE FROM stocks WHERE id = ?",
+    [req.params.id],
+    (err) => {
+      if (err) {
+        console.log("ERROR DELETE STOCK:", err);
+        return res.status(500).json({ error: "DB error" });
+      }
+      res.sendStatus(200);
+    }
+  );
+});
+
+/* ================= PORT ================= */
+
+const PORT = process.env.PORT || 3000;
+
+app.listen(PORT, () => {
+  console.log("🔥 Server jalan di port " + PORT);
+});
 
 	cs.html
 
@@ -1414,7 +1180,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 	menu.html
 
-	<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="id">
 <head>
 <meta charset="UTF-8">
@@ -1433,8 +1199,11 @@ document.addEventListener("DOMContentLoaded", () => {
     <button onclick="location='antrian.html?from=admin'">📺 Layar Antrian</button>
     <button onclick="location='cs.html'">💬 CS</button>
     <button onclick="location='statistik.html'">📊 Statistik</button>
-	<button onclick="location='logistik.html'">🚚 Logistik</button>
-<button onclick="location='stock.html'">📦 Stock</button>
+    <button onclick="location='logistik.html'">🚚 Logistik</button>
+    <button onclick="location='stock.html'">📦 Stock</button>
+
+    <!-- 🔥 TAMBAHAN AFFILIATE -->
+    <button onclick="location='affiliate.html'">💰 Affiliate</button>
   </div>
 </div>
 
@@ -1703,3 +1472,109 @@ document.addEventListener("DOMContentLoaded", () => {
 
 	</body>
 	</html>
+	
+	affiliate.html
+	
+	<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Affiliate</title>
+<link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+<div class="container">
+
+<button onclick="window.location='menu.html'" style="background:#64748b; margin-bottom:10px;">
+  ⬅️ Kembali
+</button>
+
+<h2>💰 Affiliate</h2>
+
+<input id="kode" placeholder="Kode Affiliate (contoh: OMUY01)">
+<input id="telpAff" placeholder="Nomor WhatsApp kamu">
+
+<button onclick="cekAffiliate()">Cek Performa</button>
+
+<div id="hasil" class="card" style="margin-top:15px; display:none;"></div>
+
+</div>
+
+<script>
+
+const BASE_URL = "https://omuy11-production.up.railway.app";
+
+/* ================= SIMPAN AFFILIATE ================= */
+function simpanAffiliate(kode, telp) {
+  fetch(BASE_URL + "/affiliate", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ kode, telp })
+  });
+}
+
+/* ================= CEK AFFILIATE ================= */
+function cekAffiliate() {
+
+  let kode = document.getElementById("kode").value;
+  let telp = document.getElementById("telpAff").value;
+
+  // 🔥 rapihin
+  kode = kode.toUpperCase().trim();
+
+  if (telp.startsWith("08")) {
+    telp = "62" + telp.slice(1);
+  }
+
+  if (!kode || !telp) {
+    alert("Isi kode & nomor dulu!");
+    return;
+  }
+
+  // 🔥 validasi kode (opsional tapi bagus)
+  if (!/^OMUY[0-9]+$/.test(kode)) {
+    alert("Format kode harus OMUY01, OMUY02, dll");
+    return;
+  }
+
+  // 🔥 simpan ke DB
+  simpanAffiliate(kode, telp);
+
+  // 🔥 ambil data performa
+  fetch(BASE_URL + "/affiliate/" + kode)
+    .then(res => res.json())
+    .then(data => {
+
+      const hasil = document.getElementById("hasil");
+
+      hasil.style.display = "block";
+
+      hasil.innerHTML = `
+        <b>📌 Kode:</b> ${kode}<br>
+        <b>📞 No HP:</b> ${data.telp}<br><br>
+
+        <b>📦 Total Order Selesai:</b> ${data.totalOrder}<br>
+        <b>💰 Estimasi Saldo:</b> Rp ${data.totalSaldo}<br><br>
+
+        <small>Saldo akan dikonfirmasi admin saat redeem</small><br><br>
+
+        <a href="https://wa.me/6285794748730?text=Saya%20mau%20redeem%20affiliate%20kode%20${kode}%20dengan%20saldo%20Rp%20${data.totalSaldo}%20no%20saya%20${telp}" target="_blank">
+          <button>💬 Redeem ke Admin</button>
+        </a>
+      `;
+    })
+    .catch(err => {
+      console.error("ERROR AFFILIATE:", err);
+      alert("Gagal ambil data!");
+    });
+}
+
+</script>
+
+</body>
+</html>

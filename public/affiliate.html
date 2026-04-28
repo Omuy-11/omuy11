@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Affiliate</title>
+<link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+<div class="container">
+
+<button onclick="window.location='menu.html'" style="background:#64748b; margin-bottom:10px;">
+  ⬅️ Kembali
+</button>
+
+<h2>💰 Affiliate</h2>
+
+<input id="kode" placeholder="Kode Affiliate (contoh: OMUY01)">
+<input id="telpAff" placeholder="Nomor WhatsApp kamu">
+
+<button onclick="cekAffiliate()">Cek Performa</button>
+
+<div id="hasil" class="card" style="margin-top:15px; display:none;"></div>
+
+</div>
+
+<script>
+
+const BASE_URL = "https://omuy11-production.up.railway.app";
+
+/* ================= SIMPAN AFFILIATE ================= */
+function simpanAffiliate(kode, telp) {
+  fetch(BASE_URL + "/affiliate", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ kode, telp })
+  });
+}
+
+/* ================= CEK AFFILIATE ================= */
+function cekAffiliate() {
+
+  let kode = document.getElementById("kode").value;
+  let telp = document.getElementById("telpAff").value;
+
+  // 🔥 rapihin
+  kode = kode.toUpperCase().trim();
+
+  if (telp.startsWith("08")) {
+    telp = "62" + telp.slice(1);
+  }
+
+  if (!kode || !telp) {
+    alert("Isi kode & nomor dulu!");
+    return;
+  }
+
+  // 🔥 validasi kode (opsional tapi bagus)
+  if (!/^OMUY[0-9]+$/.test(kode)) {
+    alert("Format kode harus OMUY01, OMUY02, dll");
+    return;
+  }
+
+  // 🔥 simpan ke DB
+  simpanAffiliate(kode, telp);
+
+  // 🔥 ambil data performa
+  fetch(BASE_URL + "/affiliate/" + kode)
+    .then(res => res.json())
+    .then(data => {
+
+      const hasil = document.getElementById("hasil");
+
+      hasil.style.display = "block";
+
+      hasil.innerHTML = `
+        <b>📌 Kode:</b> ${kode}<br>
+        <b>📞 No HP:</b> ${data.telp}<br><br>
+
+        <b>📦 Total Order Selesai:</b> ${data.totalOrder}<br>
+        <b>💰 Estimasi Saldo:</b> Rp ${data.totalSaldo}<br><br>
+
+        <small>Saldo akan dikonfirmasi admin saat redeem</small><br><br>
+
+        <a href="https://wa.me/6285794748730?text=Saya%20mau%20redeem%20affiliate%20kode%20${kode}%20dengan%20saldo%20Rp%20${data.totalSaldo}%20no%20saya%20${telp}" target="_blank">
+          <button>💬 Redeem ke Admin</button>
+        </a>
+      `;
+    })
+    .catch(err => {
+      console.error("ERROR AFFILIATE:", err);
+      alert("Gagal ambil data!");
+    });
+}
+
+</script>
+
+</body>
+</html>

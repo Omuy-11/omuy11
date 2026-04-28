@@ -70,14 +70,12 @@ function auth(req, res, next) {
 
 // CREATE ORDER (PUBLIC)
 app.post("/order", (req, res) => {
-  const { nama, telp, items, total, alamat, alamatLengkap, pembayaran } = req.body;
+  const { nama, telp, items, total, alamat, alamatLengkap, pembayaran, affiliate } = req.body;
 
-  // 🔥 STEP 8
   if (!telp) {
     return res.status(400).json({ error: "No telp wajib!" });
   }
 
-  // 🔥 CEK STOCK
   db.query("SELECT * FROM stocks", (err, stocks) => {
 
     if (err) {
@@ -93,7 +91,7 @@ app.post("/order", (req, res) => {
       }
     }
 
-    // 🔥 KURANGI STOCK
+    // kurangi stock
     items.forEach(item => {
       db.query(
         "UPDATE stocks SET jumlah = GREATEST(jumlah - 1, 0) WHERE nama = ?",
@@ -101,14 +99,13 @@ app.post("/order", (req, res) => {
       );
     });
 
-    // 🔥 INSERT ORDER
     db.query("SELECT MAX(antrian) AS last FROM orders", (err, result) => {
 
       let last = result[0]?.last || 0;
       let nextAntrian = parseInt(last) + 1;
 
       db.query(
-        "INSERT INTO orders (nama, telp, items, total, alamat, alamat_lengkap, pembayaran, antrian, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO orders (nama, telp, items, total, alamat, alamat_lengkap, pembayaran, antrian, status, affiliate_kode) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         [
           nama,
           telp,
@@ -118,7 +115,8 @@ app.post("/order", (req, res) => {
           alamatLengkap,
           pembayaran,
           nextAntrian,
-          "Menunggu"
+          "Menunggu",
+          affiliate || null
         ],
         (err2, result2) => {
           if (err2) {
@@ -177,9 +175,67 @@ app.delete("/order/:id", auth, (req, res) => {
   );
 });
 
+/* ================= AFFILIATE ================= */
+
+// SIMPAN / UPDATE AFFILIATE (kode + telp)
+app.post("/affiliate", (req, res) => {
+  const { kode, telp } = req.body;
+
+  if (!kode || !telp) {
+    return res.status(400).json({ error: "Data tidak lengkap" });
+  }
+
+  db.query(
+    "INSERT INTO affiliates (kode, telp) VALUES (?, ?) ON DUPLICATE KEY UPDATE telp=?",
+    [kode, telp, telp],
+    (err) => {
+      if (err) {
+        console.log("ERROR AFFILIATE:", err);
+        return res.status(500).json({ error: "DB error" });
+      }
+
+      res.sendStatus(200);
+    }
+  );
+});
+
+// CEK PERFORMA AFFILIATE
+app.get("/affiliate/:kode", (req, res) => {
+  const kode = req.params.kode;
+
+  db.query(
+    "SELECT * FROM orders WHERE affiliate_kode = ? AND status = 'Selesai'",
+    [kode],
+    (err, orders) => {
+
+      if (err) {
+        return res.status(500).json({ error: "DB error" });
+      }
+
+      db.query(
+        "SELECT * FROM affiliates WHERE kode = ?",
+        [kode],
+        (err2, aff) => {
+
+          const totalOrder = orders.length;
+          const komisiPerOrder = 1000;
+          const totalSaldo = totalOrder * komisiPerOrder;
+
+          res.json({
+            totalOrder,
+            totalSaldo,
+            telp: aff[0]?.telp || "-"
+          });
+
+        }
+      );
+    }
+  );
+});
+
 /* ================= STOCK ================= */
 
-// GET STOCK (PUBLIC)
+// GET STOCK
 app.get("/stocks", (req, res) => {
   db.query("SELECT * FROM stocks ORDER BY id DESC", (err, results) => {
     if (err) {
@@ -190,11 +246,10 @@ app.get("/stocks", (req, res) => {
   });
 });
 
-// TAMBAH STOCK (ADMIN)
+// TAMBAH STOCK
 app.post("/stocks", auth, (req, res) => {
   const { nama, jumlah } = req.body;
 
-  // 🔥 VALIDASI DI SINI
   if (!nama || typeof jumlah !== "number" || jumlah < 0) {
     return res.status(400).json({ error: "Data tidak valid" });
   }
@@ -212,7 +267,7 @@ app.post("/stocks", auth, (req, res) => {
   );
 });
 
-// UPDATE STOCK (➕➖)
+// UPDATE STOCK
 app.put("/stocks/update", auth, (req, res) => {
   const { nama, jumlah } = req.body;
 
