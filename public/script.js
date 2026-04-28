@@ -147,10 +147,11 @@ body: JSON.stringify({
   telp,
   items: keranjang,
   total,
+  ongkir: total - keranjang.reduce((s, i) => s + i.harga, 0), // 🔥 TAMBAHAN
   alamat,
   alamatLengkap,
   pembayaran,
-  isTest: IS_LOCAL // ✅ INI MODE TEST
+  isTest: IS_LOCAL
 })
   })
     .then(res => {

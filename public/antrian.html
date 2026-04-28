@@ -158,7 +158,7 @@ function panggil(nomor, status) {
 
 /* ================= LOAD ================= */
 function loadAntrian() {
-  fetch(BASE_URL + "/public-orders")
+  fetch(BASE_URL + "/public-orders?test=0")
     .then(res => res.json())
     .then(data => {
 

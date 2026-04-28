@@ -115,7 +115,7 @@ function rollback(conn, res, message) {
 
 // CREATE ORDER
 app.post("/order", (req, res) => {
-  const { nama, telp, items, alamat, alamatLengkap, pembayaran, isTest } = req.body;
+  const { nama, telp, items, alamat, alamatLengkap, pembayaran, isTest, ongkir } = req.body;
 
   if (!items || !Array.isArray(items) || items.length === 0) {
     return res.status(400).json({ error: "Item tidak valid!" });
@@ -189,18 +189,20 @@ app.post("/order", (req, res) => {
             .then(() => {
               // HITUNG TOTAL ASLI
               const realTotal = items.reduce(
-                (sum, item) => sum + item.harga,
-                0
-              );
+  (sum, item) => sum + item.harga,
+  0
+) + (ongkir || 0);
 
               // ANTRIAN
-              conn.query(
-                "SELECT MAX(antrian) as last FROM orders FOR UPDATE",
-                (err, result) => {
-                  if (err) return rollback(conn, res, "DB error");
+              const queryAntrian = isTest
+  ? "SELECT MAX(antrian) as last FROM orders WHERE is_test = 1 FOR UPDATE"
+  : "SELECT MAX(antrian) as last FROM orders WHERE is_test = 0 FOR UPDATE";
 
-                  const last = result[0]?.last || 0;
-                  const nextAntrian = last + 1;
+conn.query(queryAntrian, (err, result) => {
+  if (err) return rollback(conn, res, "DB error");
+
+  const last = result[0]?.last || 0;
+  const nextAntrian = last + 1;
 
                   // INSERT ORDER
                   conn.query(
@@ -247,14 +249,18 @@ app.post("/order", (req, res) => {
 /* ================= PUBLIC ================= */
 
 app.get("/public-orders", (req, res) => {
-  db.query(
-    "SELECT * FROM orders ORDER BY id DESC LIMIT 20",
-    (err, results) => {
-      if (err)
-        return res.status(500).json({ error: err.message });
-      res.json(results || []);
-    }
-  );
+
+  const showTest = req.query.test === "1";
+
+  const query = showTest
+    ? "SELECT * FROM orders WHERE is_test = 1 ORDER BY id DESC LIMIT 20"
+    : "SELECT * FROM orders WHERE is_test = 0 ORDER BY id DESC LIMIT 20";
+
+  db.query(query, (err, results) => {
+    if (err)
+      return res.status(500).json({ error: err.message });
+    res.json(results || []);
+  });
 });
 
 /* ================= ADMIN ================= */
